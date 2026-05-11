@@ -17,19 +17,16 @@ Last updated: 2026-05-12
 - [x] Daily goal (default 6 Pomodoros) with `GoalRing`
 - [x] Dexie schema v2 migration (safe upgrade)
 - [x] Overtime mode: timer keeps counting past planned duration
-
-## In progress (Tier A bundle)
-
-- [ ] CSV export of all sessions
-- [ ] JSON export + import (full backup/restore, gitignored .env style)
-- [ ] Per-project totals on Projects page (this month, all-time)
-- [ ] Web Notification at overflow boundary if tab is hidden
+- [x] CSV export of all sessions
+- [x] JSON export + import (Replace All with confirm)
+- [x] Per-project totals on Projects page (last 30d, all-time, session count)
+- [x] Web Notification at overflow boundary if tab is hidden
 
 ## QA gaps to verify
 
+- [x] Pause-during-overflow holds state correctly on resume
+- [x] Overflow → +5 min → reaches new boundary → re-enters overflow (chime fires again)
 - [ ] iOS Safari "Add to Home Screen" PWA flow — audio, wake lock, notifications
-- [ ] Pause-during-overflow holds state correctly on resume
-- [ ] Overflow → +5 min → reaches new boundary → re-enters overflow (chime fires again)
 - [ ] Multiple-tab behavior — what happens if app is open in two tabs and timer running in one?
 - [ ] Daylight savings boundary — does a session that crosses 2am→3am break the calendar?
 
