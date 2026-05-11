@@ -1,12 +1,31 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Archive, ArchiveRestore, Plus, Trash2 } from 'lucide-react'
+import { subDays } from 'date-fns'
 import { db, PROJECT_COLORS } from '../db'
 import { Button } from '../components/Button'
-import type { Project } from '../types'
+import { fmtDuration } from '../lib/format'
+import type { Pomodoro, Project } from '../types'
+
+type Totals = { allTime: number; last30: number; count: number }
+
+function buildTotals(pomodoros: Pomodoro[]): Map<string, Totals> {
+  const cutoff = subDays(new Date(), 30).getTime()
+  const m = new Map<string, Totals>()
+  for (const p of pomodoros) {
+    const t = m.get(p.projectId) ?? { allTime: 0, last30: 0, count: 0 }
+    t.allTime += p.actualSeconds
+    if (p.startedAt >= cutoff) t.last30 += p.actualSeconds
+    t.count += 1
+    m.set(p.projectId, t)
+  }
+  return m
+}
 
 export function ProjectsView() {
   const projects = useLiveQuery(() => db.projects.orderBy('createdAt').reverse().toArray(), [], [])
+  const pomodoros = useLiveQuery(() => db.pomodoros.toArray(), [], [])
+  const totals = useMemo(() => buildTotals(pomodoros ?? []), [pomodoros])
   const [editing, setEditing] = useState<Project | null>(null)
   const [creating, setCreating] = useState(false)
 
@@ -32,24 +51,34 @@ export function ProjectsView() {
       )}
 
       <div className="space-y-2">
-        {(projects ?? []).map(p => (
-          <div key={p.id} className={`rounded-2xl border p-4 flex items-center gap-3 ${p.archived ? 'opacity-60 border-ink-200 dark:border-ink-800' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800'}`}>
-            <span className="h-3 w-3 rounded-full" style={{ backgroundColor: p.color }} />
-            <button onClick={() => setEditing(p)} className="text-left flex-1 min-w-0">
-              <div className="font-medium text-ink-900 dark:text-ink-100 truncate">{p.name}</div>
-              {p.description && <div className="text-xs text-ink-500 truncate">{p.description}</div>}
-            </button>
-            <Button variant="ghost" size="sm" onClick={() => db.projects.update(p.id, { archived: !p.archived })}>
-              {p.archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={async () => {
-              if (!confirm(`Delete project "${p.name}"? Past Pomodoros are kept.`)) return
-              await db.projects.delete(p.id)
-            }}>
-              <Trash2 size={16} className="text-rose-500" />
-            </Button>
-          </div>
-        ))}
+        {(projects ?? []).map(p => {
+          const t = totals.get(p.id) ?? { allTime: 0, last30: 0, count: 0 }
+          return (
+            <div key={p.id} className={`rounded-2xl border p-4 flex items-center gap-3 ${p.archived ? 'opacity-60 border-ink-200 dark:border-ink-800' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800'}`}>
+              <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+              <button onClick={() => setEditing(p)} className="text-left flex-1 min-w-0">
+                <div className="font-medium text-ink-900 dark:text-ink-100 truncate">{p.name}</div>
+                <div className="flex items-center gap-3 mt-0.5 text-[11px] tabular text-ink-500">
+                  <span>{t.count} session{t.count === 1 ? '' : 's'}</span>
+                  <span>·</span>
+                  <span>{fmtDuration(t.last30)} <span className="text-ink-400">last 30d</span></span>
+                  <span className="text-ink-400">·</span>
+                  <span>{fmtDuration(t.allTime)} <span className="text-ink-400">all time</span></span>
+                </div>
+                {p.description && <div className="text-xs text-ink-500 truncate mt-1">{p.description}</div>}
+              </button>
+              <Button variant="ghost" size="sm" onClick={() => db.projects.update(p.id, { archived: !p.archived })}>
+                {p.archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={async () => {
+                if (!confirm(`Delete project "${p.name}"? Past Pomodoros are kept.`)) return
+                await db.projects.delete(p.id)
+              }}>
+                <Trash2 size={16} className="text-rose-500" />
+              </Button>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

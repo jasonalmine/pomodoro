@@ -7,9 +7,11 @@ import { notify } from './useNotifications'
 export function useAudioEffects() {
   const phase = useTimer(s => s.phase)
   const breath = useTimer(s => s.breath)
+  const isOverflow = useTimer(s => s.isOverflow)
   const settings = useSettings()
   const prevPhase = useRef(phase)
   const prevBreathStage = useRef<string | null>(null)
+  const prevOverflow = useRef(false)
 
   // master volume + mute reactive
   useEffect(() => {
@@ -42,6 +44,15 @@ export function useAudioEffects() {
       prevPhase.current = phase
     }
   }, [phase, settings.notifications])
+
+  // notification at overflow boundary (false → true) for hidden tabs
+  useEffect(() => {
+    if (!prevOverflow.current && isOverflow && settings.notifications) {
+      if (phase === 'work') notify('Planned focus complete', 'In overtime. End or extend when ready.')
+      else if (phase === 'shortBreak' || phase === 'longBreak') notify('Break over', 'In overtime. Get back to it when ready.')
+    }
+    prevOverflow.current = isOverflow
+  }, [isOverflow, phase, settings.notifications])
 
   // breath cue on inhale/exhale start
   useEffect(() => {

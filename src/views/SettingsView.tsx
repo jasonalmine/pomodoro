@@ -1,6 +1,10 @@
+import { useRef, useState } from 'react'
+import { Download, FileDown, Upload } from 'lucide-react'
 import { BREATH_PATTERNS } from '../db'
 import { useSettings, updateSettings } from '../hooks/useSettings'
 import { chime, breathCue } from '../audio/engine'
+import { exportCsv, exportJson, importJson } from '../lib/exportImport'
+import { Button } from '../components/Button'
 import type { AmbientId, ThemeMode } from '../types'
 
 export function SettingsView() {
@@ -108,7 +112,68 @@ export function SettingsView() {
           </div>
         </Field>
       </Section>
+
+      <DataSection />
     </div>
+  )
+}
+
+function DataSection() {
+  const fileRef = useRef<HTMLInputElement | null>(null)
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [importing, setImporting] = useState(false)
+
+  const onImport = async (file: File) => {
+    if (!confirm('Importing will REPLACE all current projects, sessions, and settings. Continue?')) return
+    setImporting(true)
+    setStatus(null)
+    try {
+      const r = await importJson(file)
+      setStatus({ kind: 'ok', text: `Restored ${r.projects} project${r.projects === 1 ? '' : 's'}, ${r.pomodoros} session${r.pomodoros === 1 ? '' : 's'}${r.settingsRestored ? ', plus settings' : ''}.` })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Import failed.'
+      setStatus({ kind: 'err', text: msg })
+    } finally {
+      setImporting(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div>
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Your data</h2>
+        <p className="text-xs text-ink-500 mt-1">
+          Everything lives in this browser. Export to keep a backup or analyze elsewhere. Import replaces everything.
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" onClick={() => void exportCsv()}>
+          <FileDown size={16} /> Export CSV
+        </Button>
+        <Button variant="secondary" onClick={() => void exportJson()}>
+          <Download size={16} /> Export JSON
+        </Button>
+        <Button variant="ghost" onClick={() => fileRef.current?.click()} disabled={importing}>
+          <Upload size={16} /> {importing ? 'Importing…' : 'Import JSON'}
+        </Button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) void onImport(f)
+          }}
+        />
+      </div>
+      {status && (
+        <div className={`text-xs ${status.kind === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+          {status.text}
+        </div>
+      )}
+    </section>
   )
 }
 
