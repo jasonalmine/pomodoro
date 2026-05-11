@@ -38,13 +38,25 @@ npm run preview
 
 ## Deploy
 
-The app is a static SPA. The included `deploy.sh` builds and rsyncs `dist/` to any VPS where you have SSH access. Pair it with [Caddy](https://caddyserver.com/) for automatic HTTPS.
+The app is a static SPA — any static host works. HTTPS is required for `crypto.randomUUID`, Web Notifications, and Screen Wake Lock to work outside localhost.
+
+### Vercel (recommended)
+
+1. Import `jasonalmine/pomodoro` on https://vercel.com → it auto-detects Vite.
+2. Click **Deploy**.
+3. Add `pomodoro.jasonalmine.dev` under **Settings → Domains** and follow the CNAME instructions.
+
+`vercel.json` configures the SPA fallback and cache headers. Every push to `main` auto-deploys.
+
+### Self-host via Caddy (alternative)
+
+`deploy.sh` builds and rsyncs `dist/` to any VPS where you have SSH access.
 
 ```bash
 VPS_HOST=your.vps.host DOMAIN=pomodoro.yourdomain.com ./deploy.sh
 ```
 
-Or stash the host + domain in a local `.env.deploy` (already gitignored):
+Or stash the host + domain in a local `.env.deploy` (gitignored):
 
 ```bash
 echo 'VPS_HOST=your.vps.host
@@ -67,9 +79,7 @@ pomodoro.yourdomain.com {
 }
 ```
 
-Notes:
-- HTTPS is required for `crypto.randomUUID`, Web Notifications, and Screen Wake Lock to work outside localhost. Caddy provisions a Let's Encrypt cert automatically on first request.
-- Update the app: change code → re-run `./deploy.sh`. No downtime; rsync swaps the assets in place.
+Caddy provisions a Let's Encrypt cert automatically. Worth choosing this path once you wire PocketBase sync and want frontend + backend on the same box.
 
 ## Project layout
 
