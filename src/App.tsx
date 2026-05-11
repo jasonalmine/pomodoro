@@ -6,6 +6,7 @@ import { useTheme } from './hooks/useTheme'
 import { Nav } from './components/Nav'
 import { TimerView } from './views/TimerView'
 import { CalendarView } from './views/CalendarView'
+import { InsightsView } from './views/InsightsView'
 import { ProjectsView } from './views/ProjectsView'
 import { SettingsView } from './views/SettingsView'
 
@@ -21,6 +22,7 @@ function Shell() {
         <Routes>
           <Route path="/" element={<TimerView />} />
           <Route path="/calendar" element={<CalendarView />} />
+          <Route path="/insights" element={<InsightsView />} />
           <Route path="/projects" element={<ProjectsView />} />
           <Route path="/settings" element={<SettingsView />} />
         </Routes>

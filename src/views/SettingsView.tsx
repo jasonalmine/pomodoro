@@ -13,6 +13,16 @@ export function SettingsView() {
         <p className="text-sm text-ink-500 mt-1">Tune the rhythm to your work.</p>
       </header>
 
+      <Section title="Daily goal">
+        <div className="flex items-center gap-4">
+          <Num label="Pomodoros per day" value={s.dailyGoalPomodoros} min={1} max={20}
+            onChange={v => updateSettings({ dailyGoalPomodoros: v })} />
+          <div className="text-xs text-ink-500 flex-1">
+            How many focus sessions you’re aiming for each day. Shown as a ring on the Insights tab.
+          </div>
+        </div>
+      </Section>
+
       <Section title="Timer defaults">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Num label="Work (min)" value={s.timer.workMinutes} min={1} max={180}

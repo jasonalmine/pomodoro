@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pause, Play, SkipForward, X, Sparkles } from 'lucide-react'
-import { useTimer, planFromSettings, remainingSec } from '../store/timer'
+import { Pause, Play, Plus, SkipForward, X, Sparkles } from 'lucide-react'
+import { useTimer, planFromSettings } from '../store/timer'
 import { useSettings } from '../hooks/useSettings'
 import { useTimerTick } from '../hooks/useTimerTick'
 import { useWakeLock } from '../hooks/useWakeLock'
@@ -9,21 +9,12 @@ import { useNotificationRequest, requestNotificationPermission } from '../hooks/
 import { useAudioEffects } from '../hooks/useAudioEffects'
 import { db } from '../db'
 import { Button } from '../components/Button'
-import { TimerDisplay } from '../components/TimerDisplay'
+import { RingTimer } from '../components/RingTimer'
+import { GoalRing } from '../components/GoalRing'
 import { BreathingCircle } from '../components/BreathingCircle'
 import { ProjectChip } from '../components/ProjectChip'
 import { fmtDuration } from '../lib/format'
-import type { Phase } from '../types'
-
-const PHASE_LABEL: Record<Phase, string> = {
-  idle: 'Ready',
-  breathing: 'Settle In',
-  meditation: 'Meditation',
-  work: 'Focus',
-  shortBreak: 'Short Break',
-  longBreak: 'Long Break',
-  reflect: 'Reflect',
-}
+import { todayBounds, totalsInWindow } from '../lib/stats'
 
 export function TimerView() {
   useTimerTick()
@@ -39,10 +30,19 @@ export function TimerView() {
   const resume = useTimer(s => s.resume)
   const skip = useTimer(s => s.skip)
   const abort = useTimer(s => s.abort)
+  const extend = useTimer(s => s.extend)
   const workCount = useTimer(s => s.workCount)
 
   const allProjects = useLiveQuery(() => db.projects.toArray(), [], [])
   const active = useMemo(() => (allProjects ?? []).filter(p => !p.archived), [allProjects])
+
+  const today = todayBounds()
+  const todaysPoms = useLiveQuery(
+    () => db.pomodoros.where('startedAt').between(today.start, today.end, true, true).toArray(),
+    [today.start, today.end],
+    [],
+  )
+  const todayCount = useMemo(() => totalsInWindow(todaysPoms ?? [], today.start, today.end).count, [todaysPoms, today.start, today.end])
 
   const [projectId, setProjectId] = useState<string>('')
   const [task, setTask] = useState('')
@@ -137,57 +137,42 @@ export function TimerView() {
   }
 
   // Active phase
+  const canExtend = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
+
   return (
-    <div className="mx-auto w-full max-w-2xl p-4 sm:p-8 flex flex-col items-center text-center gap-8">
-      <div className="space-y-3">
-        <div className="text-xs uppercase tracking-[0.18em] text-ink-400">{PHASE_LABEL[phase]}</div>
+    <div className="mx-auto w-full max-w-2xl p-4 sm:p-8 flex flex-col items-center text-center gap-7 relative">
+      <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+        <GoalRing current={todayCount} goal={settings.dailyGoalPomodoros} size={44} />
+      </div>
+
+      <div className="space-y-3 mt-2">
         {currentProject && <ProjectChip project={currentProject} />}
-        <div className="text-sm text-ink-600 dark:text-ink-300 min-h-[1.25rem]">
+        <div className="text-sm text-ink-600 dark:text-ink-300 min-h-[1.25rem] px-8">
           {useTimer.getState().plan?.task || (phase === 'work' ? 'Focus session' : '')}
         </div>
       </div>
 
-      {phase === 'breathing' ? (
-        <BreathingCircle />
-      ) : (
-        <TimerDisplay />
-      )}
+      {phase === 'breathing' ? <BreathingCircle /> : <RingTimer />}
 
       {phase !== 'breathing' && breath == null && (
-        <div className="text-xs text-ink-400">
+        <div className="text-xs text-ink-400 -mt-2">
           {phase === 'work' && <>Pomodoro {workCount + 1} · {fmtDuration(useTimer.getState().phaseDurationSec)} planned</>}
           {phase === 'meditation' && <>Sit · {fmtDuration(useTimer.getState().phaseDurationSec)}</>}
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
         {isRunning ? (
           <Button variant="secondary" size="lg" onClick={pause}><Pause size={18} /> Pause</Button>
         ) : (
           <Button variant="primary" size="lg" onClick={resume}><Play size={18} /> Resume</Button>
         )}
+        {canExtend && (
+          <Button variant="ghost" size="lg" onClick={() => extend(5 * 60)}><Plus size={18} /> 5 min</Button>
+        )}
         <Button variant="ghost" size="lg" onClick={skip}><SkipForward size={18} /> Skip</Button>
         <Button variant="ghost" size="lg" onClick={abort}><X size={18} /> End</Button>
       </div>
-
-      <ProgressBar />
-    </div>
-  )
-}
-
-function ProgressBar() {
-  const [, force] = useState(0)
-  useEffect(() => {
-    const id = setInterval(() => force(x => x + 1), 250)
-    return () => clearInterval(id)
-  }, [])
-  const s = useTimer.getState()
-  const percent = s.phaseDurationSec <= 0
-    ? 0
-    : Math.min(100, Math.max(0, (1 - remainingSec(s) / s.phaseDurationSec) * 100))
-  return (
-    <div className="w-full max-w-md h-1 rounded-full bg-ink-200 dark:bg-ink-800 overflow-hidden">
-      <div className="h-full bg-ember-500 transition-all duration-100" style={{ width: `${percent}%` }} />
     </div>
   )
 }

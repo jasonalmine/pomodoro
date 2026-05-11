@@ -13,6 +13,17 @@ class PomodoroDB extends Dexie {
       pomodoros: 'id, projectId, startedAt, endedAt, completed',
       settings: 'id',
     })
+    this.version(2)
+      .stores({
+        projects: 'id, name, archived, createdAt',
+        pomodoros: 'id, projectId, startedAt, endedAt, completed',
+        settings: 'id',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
+          if (s.dailyGoalPomodoros == null) s.dailyGoalPomodoros = 6
+        })
+      })
   }
 }
 
@@ -58,6 +69,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifications: true,
   wakeLock: true,
   theme: 'system',
+  dailyGoalPomodoros: 6,
 }
 
 export async function ensureSeed() {

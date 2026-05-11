@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { CalendarDays, FolderKanban, Settings, Timer } from 'lucide-react'
+import { BarChart3, CalendarDays, FolderKanban, Settings, Timer } from 'lucide-react'
 import clsx from 'clsx'
 
 const items = [
   { to: '/', label: 'Timer', Icon: Timer, end: true },
+  { to: '/insights', label: 'Insights', Icon: BarChart3 },
   { to: '/calendar', label: 'Calendar', Icon: CalendarDays },
   { to: '/projects', label: 'Projects', Icon: FolderKanban },
   { to: '/settings', label: 'Settings', Icon: Settings },
@@ -33,7 +34,7 @@ export function Nav() {
       </aside>
 
       <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-ink-950/95 backdrop-blur border-t border-ink-200 dark:border-ink-800 safe-bottom">
-        <div className="grid grid-cols-4 max-w-md mx-auto">
+        <div className="grid grid-cols-5 max-w-md mx-auto">
           {items.map(({ to, label, Icon, end }) => (
             <NavLink key={to} to={to} end={end}
               className={({ isActive }) => clsx(

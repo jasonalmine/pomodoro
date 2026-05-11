@@ -54,6 +54,7 @@ export type Settings = {
   notifications: boolean
   wakeLock: boolean
   theme: ThemeMode
+  dailyGoalPomodoros: number
   pocketBaseUrl?: string
 }
 

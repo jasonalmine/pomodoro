@@ -46,6 +46,7 @@ type TimerState = {
   resume: () => void
   skip: () => void
   abort: () => void
+  extend: (seconds: number) => void
   tick: () => void
   saveReflection: (note: string) => Promise<void>
   dismissReflection: () => void
@@ -169,6 +170,13 @@ export const useTimer = create<TimerState>((set, get) => ({
       currentPomodoroStartedAt: null,
       isCompleting: false,
     })
+  },
+
+  extend: (seconds) => {
+    const s = get()
+    if (s.phase !== 'work' && s.phase !== 'shortBreak' && s.phase !== 'longBreak') return
+    if (s.isCompleting) return
+    set({ phaseDurationSec: s.phaseDurationSec + Math.max(0, seconds) })
   },
 
   tick: () => {
