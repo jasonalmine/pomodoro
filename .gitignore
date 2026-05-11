@@ -26,3 +26,6 @@ dist-ssr
 # Playwright MCP scratch
 .playwright-mcp/
 *.png
+
+# Local deploy config (VPS host, domain)
+.env.deploy

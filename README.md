@@ -36,6 +36,41 @@ npm run build
 npm run preview
 ```
 
+## Deploy
+
+The app is a static SPA. The included `deploy.sh` builds and rsyncs `dist/` to any VPS where you have SSH access. Pair it with [Caddy](https://caddyserver.com/) for automatic HTTPS.
+
+```bash
+VPS_HOST=your.vps.host DOMAIN=pomodoro.yourdomain.com ./deploy.sh
+```
+
+Or stash the host + domain in a local `.env.deploy` (already gitignored):
+
+```bash
+echo 'VPS_HOST=your.vps.host
+DOMAIN=pomodoro.yourdomain.com' > .env.deploy
+set -a; source .env.deploy; set +a; ./deploy.sh
+```
+
+On the VPS, point Caddy at `/var/www/pomodoro` with an SPA fallback:
+
+```caddyfile
+pomodoro.yourdomain.com {
+    root * /var/www/pomodoro
+    encode zstd gzip
+    file_server
+    @notFile { not file; not path /assets/* }
+    rewrite @notFile /index.html
+    @assets path /assets/*
+    header @assets Cache-Control "public, max-age=31536000, immutable"
+    header /index.html Cache-Control "no-cache"
+}
+```
+
+Notes:
+- HTTPS is required for `crypto.randomUUID`, Web Notifications, and Screen Wake Lock to work outside localhost. Caddy provisions a Let's Encrypt cert automatically on first request.
+- Update the app: change code → re-run `./deploy.sh`. No downtime; rsync swaps the assets in place.
+
 ## Project layout
 
 ```
