@@ -39,6 +39,7 @@ type TimerState = {
   currentPomodoroStartedAt: number | null
   lastCompletedPomodoroId: string | null
   isCompleting: boolean
+  isOverflow: boolean
 
   prepare: (plan: SessionPlan) => void
   start: () => void
@@ -86,6 +87,7 @@ export const useTimer = create<TimerState>((set, get) => ({
   currentPomodoroStartedAt: null,
   lastCompletedPomodoroId: null,
   isCompleting: false,
+  isOverflow: false,
 
   prepare: (plan) => {
     clearBreathTimer()
@@ -99,6 +101,7 @@ export const useTimer = create<TimerState>((set, get) => ({
       breath: null,
       currentPomodoroStartedAt: null,
       isCompleting: false,
+      isOverflow: false,
     })
   },
 
@@ -169,6 +172,7 @@ export const useTimer = create<TimerState>((set, get) => ({
       breath: null,
       currentPomodoroStartedAt: null,
       isCompleting: false,
+      isOverflow: false,
     })
   },
 
@@ -176,6 +180,16 @@ export const useTimer = create<TimerState>((set, get) => ({
     const s = get()
     if (s.phase !== 'work' && s.phase !== 'shortBreak' && s.phase !== 'longBreak') return
     if (s.isCompleting) return
+    // Extending in overflow snaps back to countdown by absorbing the overshoot into duration.
+    if (s.isOverflow && s.phaseStartedAt != null) {
+      const elapsed = s.phaseElapsedSec + (nowSec() - s.phaseStartedAt)
+      const overshoot = Math.max(0, elapsed - s.phaseDurationSec)
+      set({
+        phaseDurationSec: s.phaseDurationSec + overshoot + Math.max(0, seconds),
+        isOverflow: false,
+      })
+      return
+    }
     set({ phaseDurationSec: s.phaseDurationSec + Math.max(0, seconds) })
   },
 
@@ -184,8 +198,15 @@ export const useTimer = create<TimerState>((set, get) => ({
     if (!s.isRunning || s.phaseStartedAt == null) return
     if (s.phase === 'work' && s.isCompleting) return
     const elapsed = s.phaseElapsedSec + (nowSec() - s.phaseStartedAt)
-    if (elapsed >= s.phaseDurationSec) {
-      advancePhase(set, get)
+    // For metered phases (work / breaks), enter overflow at the boundary instead of advancing.
+    // Breathing + meditation keep auto-advancing.
+    if (s.phase === 'breathing' || s.phase === 'meditation') {
+      if (elapsed >= s.phaseDurationSec) advancePhase(set, get)
+      return
+    }
+    if (elapsed >= s.phaseDurationSec && !s.isOverflow) {
+      chime(s.phase === 'work' ? 'workEnd' : 'breakEnd')
+      set({ isOverflow: true })
     }
   },
 
@@ -273,6 +294,7 @@ function enterMeditation(plan: SessionPlan, set: (p: Partial<TimerState>) => voi
     phaseElapsedSec: 0,
     phaseStartedAt: nowSec(),
     breath: null,
+    isOverflow: false,
   })
 }
 
@@ -287,6 +309,7 @@ function enterWork(plan: SessionPlan, set: (p: Partial<TimerState>) => void) {
     breath: null,
     currentPomodoroStartedAt: Date.now(),
     isCompleting: false,
+    isOverflow: false,
   })
 }
 
@@ -308,7 +331,8 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
     ritualUsed: plan.ritual.enabled,
   }
   await db.pomodoros.put(pomodoro)
-  chime('workEnd')
+  // Boundary chime already fired when overflow started. Skip it here to avoid a double-chime.
+  if (!s.isOverflow) chime('workEnd')
   const newWorkCount = s.workCount + 1
   set({
     workCount: newWorkCount,
@@ -320,6 +344,7 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
     phaseDurationSec: 0,
     currentPomodoroStartedAt: null,
     isCompleting: false,
+    isOverflow: false,
   })
 }
 
@@ -343,6 +368,7 @@ function enterBreak(plan: SessionPlan, isLong: boolean, set: (p: Partial<TimerSt
     phaseElapsedSec: 0,
     phaseStartedAt: plan.autoStartBreaks ? nowSec() : null,
     breath: null,
+    isOverflow: false,
   })
 }
 
@@ -372,11 +398,12 @@ function advancePhase(set: (p: Partial<TimerState>) => void, get: () => TimerSta
     }
     case 'shortBreak':
     case 'longBreak':
-      chime('breakEnd')
+      // Suppress redundant chime if we already chimed at the overflow boundary.
+      if (!s.isOverflow) chime('breakEnd')
       if (plan.autoStartWork) {
         enterWork(plan, set)
       } else {
-        set({ phase: 'idle', isRunning: false, phaseDurationSec: 0, phaseElapsedSec: 0, phaseStartedAt: null })
+        set({ phase: 'idle', isRunning: false, phaseDurationSec: 0, phaseElapsedSec: 0, phaseStartedAt: null, isOverflow: false })
       }
       return
     default:
@@ -388,6 +415,13 @@ export function remainingSec(s: TimerState): number {
   if (s.phase === 'idle' || s.phase === 'reflect') return 0
   const elapsed = s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt ? nowSec() - s.phaseStartedAt : 0)
   return Math.max(0, s.phaseDurationSec - elapsed)
+}
+
+// Seconds elapsed past the planned duration. 0 when not in overflow.
+export function overflowSec(s: TimerState): number {
+  if (!s.isOverflow) return 0
+  const elapsed = s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt ? nowSec() - s.phaseStartedAt : 0)
+  return Math.max(0, elapsed - s.phaseDurationSec)
 }
 
 export function planFromSettings(

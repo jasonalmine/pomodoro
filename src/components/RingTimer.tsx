@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useTimer, remainingSec } from '../store/timer'
+import { useTimer, remainingSec, overflowSec } from '../store/timer'
 import { fmtTime } from '../lib/format'
 import type { Phase } from '../types'
 
@@ -30,6 +30,7 @@ const C = 2 * Math.PI * R
 export function RingTimer() {
   const phase = useTimer(s => s.phase)
   const phaseDurationSec = useTimer(s => s.phaseDurationSec)
+  const isOverflow = useTimer(s => s.isOverflow)
   const [, force] = useState(0)
   useEffect(() => {
     const id = setInterval(() => force(x => x + 1), 250)
@@ -38,9 +39,13 @@ export function RingTimer() {
 
   const s = useTimer.getState()
   const remaining = remainingSec(s)
+  const overflow = overflowSec(s)
   const progress = phaseDurationSec > 0 ? Math.min(1, Math.max(0, 1 - remaining / phaseDurationSec)) : 0
   const offset = C * (1 - progress)
   const color = PHASE_COLOR[phase]
+
+  const displayTime = isOverflow ? `+${fmtTime(overflow)}` : fmtTime(remaining)
+  const label = isOverflow ? `Overtime · ${PHASE_LABEL[phase]}` : PHASE_LABEL[phase]
 
   return (
     <div className="relative flex items-center justify-center select-none">
@@ -64,15 +69,21 @@ export function RingTimer() {
           strokeLinecap="round"
           strokeDasharray={C}
           strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 250ms linear' }}
+          style={{
+            transition: 'stroke-dashoffset 250ms linear',
+            opacity: isOverflow ? 0.45 : 1,
+          }}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div className="font-mono text-5xl sm:text-6xl font-bold tabular tracking-tight text-ink-900 dark:text-ink-50">
-          {fmtTime(remaining)}
+        <div
+          className={`font-mono text-5xl sm:text-6xl font-bold tabular tracking-tight ${isOverflow ? 'text-ember-500' : 'text-ink-900 dark:text-ink-50'}`}
+          style={isOverflow ? { animation: 'pulse 2s ease-in-out infinite' } : undefined}
+        >
+          {displayTime}
         </div>
-        <div className="mt-2 text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">
-          {PHASE_LABEL[phase]}
+        <div className={`mt-2 text-[11px] font-medium uppercase tracking-[0.18em] ${isOverflow ? 'text-ember-500' : 'text-ink-400'}`}>
+          {label}
         </div>
       </div>
     </div>
