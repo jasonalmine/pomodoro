@@ -1,28 +1,47 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek, isToday } from 'date-fns'
+import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, isToday } from 'date-fns'
 import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
 import { db } from '../db'
 import { fmtClock, fmtDuration } from '../lib/format'
 import { ProjectChip } from '../components/ProjectChip'
 import { Button } from '../components/Button'
+import { CalendarDaySchedule, CalendarWeekSchedule } from '../components/CalendarSchedule'
 import type { Pomodoro, Project } from '../types'
 
+type Mode = 'month' | 'week' | 'day'
+
 export function CalendarView() {
+  const [mode, setMode] = useState<Mode>('month')
   const [cursor, setCursor] = useState(() => new Date())
   const [selected, setSelected] = useState<Date | null>(new Date())
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
 
-  const monthStart = startOfMonth(cursor)
-  const monthEnd = endOfMonth(cursor)
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
+  // Pick the right query range based on mode.
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    if (mode === 'day') {
+      const s = startOfDay(cursor)
+      return { rangeStart: s, rangeEnd: addDays(s, 1) }
+    }
+    if (mode === 'week') {
+      const s = startOfWeek(cursor, { weekStartsOn: 1 })
+      return { rangeStart: s, rangeEnd: endOfWeek(cursor, { weekStartsOn: 1 }) }
+    }
+    const monthStart = startOfMonth(cursor)
+    const monthEnd = endOfMonth(cursor)
+    return {
+      rangeStart: startOfWeek(monthStart, { weekStartsOn: 1 }),
+      rangeEnd: endOfWeek(monthEnd, { weekStartsOn: 1 }),
+    }
+  }, [mode, cursor])
 
   const pomodoros = useLiveQuery(
-    () => db.pomodoros.where('startedAt').between(gridStart.getTime(), gridEnd.getTime(), true, true).toArray(),
-    [gridStart.getTime(), gridEnd.getTime()],
+    () => db.pomodoros.where('startedAt').between(rangeStart.getTime(), rangeEnd.getTime(), true, true).toArray(),
+    [rangeStart.getTime(), rangeEnd.getTime()],
     [],
   )
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projectMap = useMemo(() => new Map((projects ?? []).map(p => [p.id, p])), [projects])
 
   const byDay = useMemo(() => {
     const map = new Map<string, Pomodoro[]>()
@@ -35,6 +54,142 @@ export function CalendarView() {
     return map
   }, [pomodoros])
 
+  const headerLabel = useMemo(() => {
+    if (mode === 'day') return format(cursor, 'EEEE, MMM d')
+    if (mode === 'week') {
+      const s = startOfWeek(cursor, { weekStartsOn: 1 })
+      const e = endOfWeek(cursor, { weekStartsOn: 1 })
+      return `${format(s, 'MMM d')} – ${format(e, 'MMM d')}`
+    }
+    return format(cursor, 'MMMM yyyy')
+  }, [mode, cursor])
+
+  const onPrev = () => {
+    if (mode === 'day') setCursor(c => addDays(c, -1))
+    else if (mode === 'week') setCursor(c => addWeeks(c, -1))
+    else setCursor(c => addMonths(c, -1))
+  }
+  const onNext = () => {
+    if (mode === 'day') setCursor(c => addDays(c, 1))
+    else if (mode === 'week') setCursor(c => addWeeks(c, 1))
+    else setCursor(c => addMonths(c, 1))
+  }
+  const onToday = () => {
+    const now = new Date()
+    setCursor(now)
+    setSelected(now)
+  }
+
+  const selectedKey = selected ? format(selected, 'yyyy-MM-dd') : null
+  const selectedPoms = (selectedKey && byDay.get(selectedKey)) || []
+  const selectedSession = useMemo(
+    () => (pomodoros ?? []).find(p => p.id === selectedSessionId) ?? null,
+    [pomodoros, selectedSessionId],
+  )
+
+  return (
+    <div className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-5">
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <h1 className="font-display text-3xl text-ink-900 dark:text-ink-50">Calendar</h1>
+            <p className="text-sm text-ink-500 mt-1">Your focus history at a glance.</p>
+          </div>
+          <div className="inline-flex items-center rounded-full bg-ink-100 dark:bg-ink-800 p-1">
+            <ModeBtn active={mode === 'day'} onClick={() => setMode('day')}>Day</ModeBtn>
+            <ModeBtn active={mode === 'week'} onClick={() => setMode('week')}>Week</ModeBtn>
+            <ModeBtn active={mode === 'month'} onClick={() => setMode('month')}>Month</ModeBtn>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onPrev}><ChevronLeft size={16} /></Button>
+          <div className="text-sm font-medium tabular text-center min-w-[10rem]">{headerLabel}</div>
+          <Button variant="ghost" size="sm" onClick={onNext}><ChevronRight size={16} /></Button>
+          <Button variant="ghost" size="sm" onClick={onToday}>Today</Button>
+        </div>
+      </header>
+
+      {mode === 'month' && (
+        <MonthGrid
+          cursor={cursor}
+          byDay={byDay}
+          projectMap={projectMap}
+          selected={selected}
+          onSelect={d => { setSelected(d); setMode('day'); setCursor(d) }}
+        />
+      )}
+
+      {mode === 'week' && (
+        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-4 sm:p-5">
+          <CalendarWeekSchedule
+            weekDays={eachDayOfInterval({ start: rangeStart, end: rangeEnd })}
+            sessionsByDay={byDay}
+            projects={projectMap}
+            onSelect={p => setSelectedSessionId(p.id)}
+            selectedId={selectedSessionId}
+          />
+        </section>
+      )}
+
+      {mode === 'day' && (
+        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-4 sm:p-5 space-y-3">
+          <div className="text-xs text-ink-500">
+            {selectedPoms.length} session{selectedPoms.length === 1 ? '' : 's'} ·{' '}
+            {fmtDuration(selectedPoms.reduce((a, p) => a + p.actualSeconds, 0))}
+          </div>
+          <CalendarDaySchedule
+            date={cursor}
+            sessions={byDay.get(format(cursor, 'yyyy-MM-dd')) ?? []}
+            projects={projectMap}
+            onSelect={p => setSelectedSessionId(p.id)}
+            selectedId={selectedSessionId}
+          />
+        </section>
+      )}
+
+      {selectedSession && (
+        <SessionDetailCard session={selectedSession} project={projectMap.get(selectedSession.projectId)} onClose={() => setSelectedSessionId(null)} />
+      )}
+
+      {mode === 'month' && selected && (
+        <DayPanel date={selected} pomodoros={selectedPoms} projects={projectMap} />
+      )}
+    </div>
+  )
+}
+
+function ModeBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`h-7 px-3 rounded-full text-xs font-medium transition ${
+        active
+          ? 'bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 shadow-sm'
+          : 'text-ink-500 hover:text-ink-700 dark:hover:text-ink-200'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
+function MonthGrid({
+  cursor,
+  byDay,
+  projectMap,
+  selected,
+  onSelect,
+}: {
+  cursor: Date
+  byDay: Map<string, Pomodoro[]>
+  projectMap: Map<string, Project>
+  selected: Date | null
+  onSelect: (d: Date) => void
+}) {
+  const monthStart = startOfMonth(cursor)
+  const monthEnd = endOfMonth(cursor)
+  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
+  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd })
 
   const maxMinutes = useMemo(() => {
@@ -46,65 +201,79 @@ export function CalendarView() {
     return Math.max(60, max)
   }, [byDay])
 
-  const selectedKey = selected ? format(selected, 'yyyy-MM-dd') : null
-  const selectedPoms = (selectedKey && byDay.get(selectedKey)) || []
-  const projectMap = new Map((projects ?? []).map(p => [p.id, p]))
-
   return (
-    <div className="mx-auto w-full max-w-5xl p-4 sm:p-6 space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="font-display text-3xl text-ink-900 dark:text-ink-50">Calendar</h1>
-          <p className="text-sm text-ink-500 mt-1">Your focus history at a glance.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => setCursor(c => addMonths(c, -1))}><ChevronLeft size={16} /></Button>
-          <div className="text-sm font-medium tabular w-32 text-center">{format(cursor, 'MMMM yyyy')}</div>
-          <Button variant="ghost" size="sm" onClick={() => setCursor(c => addMonths(c, 1))}><ChevronRight size={16} /></Button>
-        </div>
-      </header>
-
-      <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
-          <div key={d} className="text-[10px] uppercase tracking-wider text-ink-400 text-center py-1">{d}</div>
-        ))}
-        {days.map(day => {
-          const key = format(day, 'yyyy-MM-dd')
-          const list = byDay.get(key) ?? []
-          const minutes = list.reduce((a, p) => a + p.actualSeconds, 0) / 60
-          const intensity = Math.min(1, minutes / maxMinutes)
-          const inMonth = isSameMonth(day, cursor)
-          const isSel = selected && isSameDay(day, selected)
-          return (
-            <button
-              key={key}
-              onClick={() => setSelected(day)}
-              className={`relative aspect-square rounded-xl border text-left p-2 transition group
-                ${inMonth ? 'border-ink-200 dark:border-ink-800' : 'border-transparent opacity-40'}
-                ${isSel ? 'ring-2 ring-ember-500' : ''}
-              `}
-              style={{
-                backgroundColor: intensity > 0
-                  ? `rgba(255, 106, 55, ${0.1 + intensity * 0.6})`
-                  : undefined,
-              }}
-            >
-              <div className={`text-xs font-medium ${isToday(day) ? 'text-ember-500' : 'text-ink-700 dark:text-ink-200'}`}>
-                {format(day, 'd')}
+    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+      {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => (
+        <div key={d} className="text-[10px] uppercase tracking-wider text-ink-400 text-center py-1">{d}</div>
+      ))}
+      {days.map(day => {
+        const key = format(day, 'yyyy-MM-dd')
+        const list = byDay.get(key) ?? []
+        const minutes = list.reduce((a, p) => a + p.actualSeconds, 0) / 60
+        const intensity = Math.min(1, minutes / maxMinutes)
+        const inMonth = isSameMonth(day, cursor)
+        const isSel = selected && isSameDay(day, selected)
+        return (
+          <button
+            key={key}
+            onClick={() => onSelect(day)}
+            className={`relative aspect-square rounded-xl border text-left p-2 transition group
+              ${inMonth ? 'border-ink-200 dark:border-ink-800' : 'border-transparent opacity-40'}
+              ${isSel ? 'ring-2 ring-ember-500' : ''}
+            `}
+            style={{
+              backgroundColor: intensity > 0
+                ? `rgba(255, 106, 55, ${0.1 + intensity * 0.6})`
+                : undefined,
+            }}
+          >
+            <div className={`text-xs font-medium ${isToday(day) ? 'text-ember-500' : 'text-ink-700 dark:text-ink-200'}`}>
+              {format(day, 'd')}
+            </div>
+            {list.length > 0 && (
+              <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center gap-0.5">
+                {list.slice(0, 6).map(p => (
+                  <span key={p.id} className="h-1 flex-1 rounded-full" style={{ backgroundColor: projectMap.get(p.projectId)?.color ?? '#ff6a37' }} />
+                ))}
               </div>
-              {list.length > 0 && (
-                <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center gap-0.5">
-                  {list.slice(0, 6).map(p => (
-                    <span key={p.id} className="h-1 flex-1 rounded-full" style={{ backgroundColor: projectMap.get(p.projectId)?.color ?? '#ff6a37' }} />
-                  ))}
-                </div>
-              )}
-            </button>
-          )
-        })}
-      </div>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
-      {selected && <DayPanel date={selected} pomodoros={selectedPoms} projects={projectMap} />}
+function SessionDetailCard({ session, project, onClose }: { session: Pomodoro; project?: Project; onClose: () => void }) {
+  const [note, setNote] = useState(session.note ?? '')
+  return (
+    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            {project && <ProjectChip project={project} />}
+            <span className="text-xs tabular text-ink-500">{fmtClock(session.startedAt)} – {fmtClock(session.endedAt)}</span>
+            <span className="text-xs tabular text-ink-500">· {fmtDuration(session.actualSeconds)}</span>
+            {!session.completed && <span className="text-[10px] uppercase tracking-wider text-rose-500">aborted</span>}
+          </div>
+          <div className="text-base text-ink-900 dark:text-ink-50 mt-1.5">{session.task || 'Focus session'}</div>
+        </div>
+        <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+      </div>
+      <textarea
+        value={note} onChange={e => setNote(e.target.value)}
+        placeholder="Add a reflection..."
+        rows={3}
+        className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none"
+      />
+      <div className="flex gap-2 justify-end">
+        <Button variant="ghost" size="sm" onClick={async () => {
+          if (!confirm('Delete this Pomodoro?')) return
+          await db.pomodoros.delete(session.id)
+          onClose()
+        }}><Trash2 size={14} className="text-rose-500" /></Button>
+        <Button size="sm" onClick={() => db.pomodoros.update(session.id, { note: note.trim() || undefined })}>Save</Button>
+      </div>
     </div>
   )
 }
