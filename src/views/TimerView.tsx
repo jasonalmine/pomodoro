@@ -152,9 +152,11 @@ export function TimerView() {
               )}
             </div>
 
-            <Button size="lg" className="w-full max-w-sm mx-auto flex" onClick={onStart} disabled={!projectId || active.length === 0}>
-              {useRitualVal ? 'Begin Ritual' : 'Start Focus'}
-            </Button>
+            <div className="flex justify-center">
+              <Button size="lg" className="w-full max-w-sm" onClick={onStart} disabled={!projectId || active.length === 0}>
+                {useRitualVal ? 'Begin Ritual' : 'Start Focus'}
+              </Button>
+            </div>
 
             {(templates ?? []).length > 0 && (
               <div className="flex flex-wrap justify-center gap-2 pt-2">
@@ -197,13 +199,15 @@ export function TimerView() {
               )}
             </div>
 
-            <Button
-              size="lg"
-              className="w-full max-w-sm mx-auto flex"
-              onClick={() => startStandaloneBreak(mode === 'short' ? 'short' : 'long', mode === 'short' ? shortMinVal : longMinVal)}
-            >
-              {mode === 'short' ? 'Start Short Break' : 'Start Long Break'}
-            </Button>
+            <div className="flex justify-center">
+              <Button
+                size="lg"
+                className="w-full max-w-sm"
+                onClick={() => startStandaloneBreak(mode === 'short' ? 'short' : 'long', mode === 'short' ? shortMinVal : longMinVal)}
+              >
+                {mode === 'short' ? 'Start Short Break' : 'Start Long Break'}
+              </Button>
+            </div>
           </div>
         )}
       </div>

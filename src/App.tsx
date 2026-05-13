@@ -27,8 +27,8 @@ function Shell() {
 
   return (
     <div className="min-h-full flex">
-      {!inSession && <Nav />}
-      <main className={`flex-1 min-w-0 ${inSession ? '' : 'pb-24 lg:pb-0'}`}>
+      <Nav collapsed={inSession} />
+      <main className="flex-1 min-w-0 pb-24 lg:pb-0">
         <Routes>
           <Route path="/" element={<TimerView />} />
           <Route path="/calendar" element={<CalendarView />} />
