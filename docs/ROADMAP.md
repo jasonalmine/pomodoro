@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-12
+Last updated: 2026-05-12 (Session-inspired UI/UX overhaul + templates + page-title timer + theme palettes shipped)
 
 ---
 
@@ -21,6 +21,18 @@ Last updated: 2026-05-12
 - [x] JSON export + import (Replace All with confirm)
 - [x] Per-project totals on Projects page (last 30d, all-time, session count)
 - [x] Web Notification at overflow boundary if tab is hidden
+- [x] Keyboard shortcuts: Space = pause/resume, S = skip, E = +5min, Esc = end
+- [x] Focus-mode UI: hide nav + center timer during active sessions
+- [x] Manual break controls: idle-screen mode picker (Focus / Short / Long) + queued-break CTA after work
+- [x] Cloud sync via Supabase (magic-link auth, Dexie-first with last-write-wins push/pull on projects + pomodoros)
+- [x] End-of-work auto-saves the Pomodoro and rolls into a running break
+- [x] Page-title countdown (`24:58 · Focus`) and dynamic favicon progress ring
+- [x] Theme palettes: Ember / Pine / Slate (CSS vars, runtime swap)
+- [x] Idle screen redesign: Session-style intention hero (project chip + serif focus input + recent-task chips)
+- [x] Active phase choreography: intention restated on the ring, ringIn/fadeIn transitions
+- [x] Reflection panel with structured prompts (`What did you finish?` / `What's next?` / freeform)
+- [x] Session templates: save current combo as a one-tap template; manage in Settings
+- [x] Insights tabs: Today / Week / All-time / Year, with lifetime stat cards and GitHub-style year heatmap
 
 ## QA gaps to verify
 
@@ -34,7 +46,6 @@ Last updated: 2026-05-12
 
 - [ ] **Edit task mid-session** — click the task text to rename in place
 - [ ] **"Resume last session"** button on idle screen — prefills last project + task
-- [ ] **Keyboard shortcuts** — space = pause/resume, S = skip, E = +5min, Esc = end
 - [ ] **"Allow overtime" toggle** in Settings (default on, off = strict 25m)
 - [ ] **Tags** — multi-label per session beyond project (e.g. `deep`, `admin`, `meeting`, `learning`)
 - [ ] **Distraction tap counter** — single button during focus to log "got distracted"; visible in session detail
@@ -53,7 +64,6 @@ Last updated: 2026-05-12
 
 ## Tier D — big swings, defer until they're worth it
 
-- [ ] **Cloud sync** via self-hosted PocketBase on Contabo VPS — multi-device, the big one
 - [ ] **PWA install + service worker** — offline support, install on iOS / Android home screen
 - [ ] **Mobile native app** wrapping the PWA (Capacitor or similar) for richer notifications and lock-screen timer
 - [ ] **AI weekly summary** — "Here's where your focus went, here's a pattern" once per week via Anthropic API

@@ -28,6 +28,11 @@ export default {
           500: '#ff6a37',
           600: '#e04f1f',
         },
+        accent: {
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+          soft: 'rgb(var(--accent-soft) / <alpha-value>)',
+          strong: 'rgb(var(--accent-strong) / <alpha-value>)',
+        },
       },
       animation: {
         'breath-in': 'breathIn var(--bd, 4s) ease-in-out forwards',
@@ -36,6 +41,8 @@ export default {
       keyframes: {
         breathIn: { '0%': { transform: 'scale(0.55)' }, '100%': { transform: 'scale(1)' } },
         breathOut: { '0%': { transform: 'scale(1)' }, '100%': { transform: 'scale(0.55)' } },
+        fadeIn: { '0%': { opacity: '0', transform: 'translateY(4px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        ringIn: { '0%': { opacity: '0', transform: 'scale(0.94)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
       },
     },
   },

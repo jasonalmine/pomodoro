@@ -13,14 +13,26 @@ const PHASE_LABEL: Record<Phase, string> = {
   reflect: 'Reflect',
 }
 
-const PHASE_COLOR: Record<Phase, string> = {
-  idle: '#646473',
-  breathing: '#818cf8',
-  meditation: '#818cf8',
-  work: '#ff6a37',
-  shortBreak: '#10b981',
-  longBreak: '#10b981',
-  reflect: '#646473',
+// Resolves to a CSS rgb() expression that respects the active palette.
+function accentColor(opacity = 1): string {
+  return `rgb(var(--accent) / ${opacity})`
+}
+
+// Distinct hue for breaks so work and rest read differently.
+const BREAK_COLOR = '#10b981'
+
+function phaseRingColor(phase: Phase): string {
+  switch (phase) {
+    case 'shortBreak':
+    case 'longBreak':
+      return BREAK_COLOR
+    case 'work':
+    case 'breathing':
+    case 'meditation':
+      return accentColor()
+    default:
+      return 'rgb(100 100 115)'
+  }
 }
 
 const R = 90
@@ -42,7 +54,7 @@ export function RingTimer() {
   const overflow = overflowSec(s)
   const progress = phaseDurationSec > 0 ? Math.min(1, Math.max(0, 1 - remaining / phaseDurationSec)) : 0
   const offset = C * (1 - progress)
-  const color = PHASE_COLOR[phase]
+  const color = phaseRingColor(phase)
 
   const displayTime = isOverflow ? `+${fmtTime(overflow)}` : fmtTime(remaining)
   const label = isOverflow ? `Overtime · ${PHASE_LABEL[phase]}` : PHASE_LABEL[phase]
@@ -77,12 +89,12 @@ export function RingTimer() {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
         <div
-          className={`font-mono text-5xl sm:text-6xl font-bold tabular tracking-tight ${isOverflow ? 'text-ember-500' : 'text-ink-900 dark:text-ink-50'}`}
+          className={`font-mono text-5xl sm:text-6xl font-bold tabular tracking-tight ${isOverflow ? 'text-accent' : 'text-ink-900 dark:text-ink-50'}`}
           style={isOverflow ? { animation: 'pulse 2s ease-in-out infinite' } : undefined}
         >
           {displayTime}
         </div>
-        <div className={`mt-2 text-[11px] font-medium uppercase tracking-[0.18em] ${isOverflow ? 'text-ember-500' : 'text-ink-400'}`}>
+        <div className={`mt-2 text-[11px] font-medium uppercase tracking-[0.18em] ${isOverflow ? 'text-accent' : 'text-ink-400'}`}>
           {label}
         </div>
       </div>

@@ -1,10 +1,11 @@
 import Dexie, { type Table } from 'dexie'
-import type { Pomodoro, Project, Settings } from '../types'
+import type { Pomodoro, Project, Settings, Template } from '../types'
 
 class PomodoroDB extends Dexie {
   projects!: Table<Project, string>
   pomodoros!: Table<Pomodoro, string>
   settings!: Table<Settings, string>
+  templates!: Table<Template, string>
 
   constructor() {
     super('pomodoro')
@@ -22,6 +23,33 @@ class PomodoroDB extends Dexie {
       .upgrade(async (tx) => {
         await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
           if (s.dailyGoalPomodoros == null) s.dailyGoalPomodoros = 6
+        })
+      })
+    this.version(3)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+      })
+      .upgrade(async (tx) => {
+        const now = Date.now()
+        await tx.table('projects').toCollection().modify((p: Partial<Project>) => {
+          if (p.updatedAt == null) p.updatedAt = p.createdAt ?? now
+        })
+        await tx.table('pomodoros').toCollection().modify((p: Partial<Pomodoro>) => {
+          if (p.updatedAt == null) p.updatedAt = p.endedAt ?? p.startedAt ?? now
+        })
+      })
+    this.version(4)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+        templates: 'id, name, createdAt, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
+          if (!s.palette) s.palette = 'ember'
         })
       })
   }
@@ -48,7 +76,7 @@ export const DEFAULT_SETTINGS: Settings = {
     shortBreakMinutes: 5,
     longBreakMinutes: 20,
     longBreakEvery: 4,
-    autoStartBreaks: true,
+    autoStartBreaks: false,
     autoStartWork: false,
   },
   ritual: {
@@ -69,6 +97,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifications: true,
   wakeLock: true,
   theme: 'system',
+  palette: 'ember',
   dailyGoalPomodoros: 6,
 }
 
@@ -79,12 +108,14 @@ export async function ensureSeed() {
   }
   const projectCount = await db.projects.count()
   if (projectCount === 0) {
+    const now = Date.now()
     await db.projects.put({
       id: crypto.randomUUID(),
       name: 'Deep Work',
       color: '#ff6a37',
       archived: false,
-      createdAt: Date.now(),
+      createdAt: now,
+      updatedAt: now,
     })
   }
 }

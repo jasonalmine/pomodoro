@@ -78,7 +78,7 @@ export function WeeklyStacks({
                 <div className="w-full h-px" />
               )}
             </div>
-            <div className={`text-[10px] uppercase tracking-wider ${isToday ? 'text-ember-500 font-semibold' : 'text-ink-400'}`}>
+            <div className={`text-[10px] uppercase tracking-wider ${isToday ? 'text-accent font-semibold' : 'text-ink-400'}`}>
               {format(day, 'EEE')}
             </div>
             <div className="text-[10px] tabular text-ink-500">

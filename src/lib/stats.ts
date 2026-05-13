@@ -106,3 +106,110 @@ export function completionRate(poms: Pomodoro[]): { rate: number; completed: num
 export function daysSince(ts: number, now = Date.now()): number {
   return differenceInCalendarDays(now, ts)
 }
+
+export type LifetimeStats = {
+  seconds: number
+  sessions: number
+  bestStreak: number
+  bestDay: { date: string; seconds: number } | null
+  topProject: { project: Project; seconds: number } | null
+  averagePerDay: number
+  firstSession: number | null
+}
+
+export function lifetimeStats(poms: Pomodoro[], projects: Project[]): LifetimeStats {
+  if (poms.length === 0) {
+    return { seconds: 0, sessions: 0, bestStreak: 0, bestDay: null, topProject: null, averagePerDay: 0, firstSession: null }
+  }
+  let seconds = 0
+  const perDay = new Map<string, number>()
+  const perProj = new Map<string, number>()
+  let firstSession: number | null = null
+  for (const p of poms) {
+    seconds += p.actualSeconds
+    const dayKey = format(new Date(p.startedAt), 'yyyy-MM-dd')
+    perDay.set(dayKey, (perDay.get(dayKey) ?? 0) + p.actualSeconds)
+    if (p.projectId) perProj.set(p.projectId, (perProj.get(p.projectId) ?? 0) + p.actualSeconds)
+    if (firstSession == null || p.startedAt < firstSession) firstSession = p.startedAt
+  }
+  let bestDay: { date: string; seconds: number } | null = null
+  for (const [date, secs] of perDay) {
+    if (!bestDay || secs > bestDay.seconds) bestDay = { date, seconds: secs }
+  }
+  let topProjectId: string | null = null
+  let topProjectSec = 0
+  for (const [id, secs] of perProj) {
+    if (secs > topProjectSec) { topProjectId = id; topProjectSec = secs }
+  }
+  const topProject = topProjectId ? projects.find(p => p.id === topProjectId) : null
+  const bestStreak = computeBestStreak(poms)
+  const daysActive = perDay.size || 1
+  const averagePerDay = Math.round(seconds / daysActive)
+  return {
+    seconds,
+    sessions: poms.length,
+    bestStreak,
+    bestDay,
+    topProject: topProject ? { project: topProject, seconds: topProjectSec } : null,
+    averagePerDay,
+    firstSession,
+  }
+}
+
+function computeBestStreak(poms: Pomodoro[]): number {
+  const completedDays = new Set<string>()
+  for (const p of poms) {
+    if (!p.completed) continue
+    completedDays.add(format(new Date(p.startedAt), 'yyyy-MM-dd'))
+  }
+  if (completedDays.size === 0) return 0
+  const sorted = [...completedDays].sort()
+  let best = 1
+  let cur = 1
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = new Date(sorted[i - 1]).getTime()
+    const cdate = new Date(sorted[i]).getTime()
+    const diffDays = Math.round((cdate - prev) / (24 * 60 * 60 * 1000))
+    if (diffDays === 1) { cur += 1; best = Math.max(best, cur) }
+    else { cur = 1 }
+  }
+  return best
+}
+
+// 365-day heatmap ending today.
+export function yearlyHeatmap(poms: Pomodoro[], now = new Date()): Array<{ date: Date; key: string; seconds: number; count: number }> {
+  const end = startOfDay(now)
+  const start = new Date(end.getTime() - 364 * 24 * 60 * 60 * 1000)
+  const days = eachDayOfInterval({ start, end })
+  const map = new Map<string, { seconds: number; count: number }>()
+  for (const d of days) map.set(format(d, 'yyyy-MM-dd'), { seconds: 0, count: 0 })
+  for (const p of poms) {
+    const key = format(new Date(p.startedAt), 'yyyy-MM-dd')
+    const b = map.get(key)
+    if (!b) continue
+    b.seconds += p.actualSeconds
+    b.count += 1
+  }
+  return days.map(d => {
+    const key = format(d, 'yyyy-MM-dd')
+    const v = map.get(key)!
+    return { date: d, key, seconds: v.seconds, count: v.count }
+  })
+}
+
+// Most-recent distinct task strings from completed Pomodoros, newest first.
+export function recentTasks(poms: Pomodoro[], limit = 3): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  const sorted = [...poms].sort((a, b) => b.startedAt - a.startedAt)
+  for (const p of sorted) {
+    const t = (p.task || '').trim()
+    if (!t || t === 'Focus session') continue
+    const key = t.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(t)
+    if (out.length >= limit) break
+  }
+  return out
+}

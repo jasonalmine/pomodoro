@@ -5,7 +5,7 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-ember-500 hover:bg-ember-600 text-white shadow-lg shadow-ember-500/25',
+  primary: 'bg-accent hover:bg-accent-strong text-white shadow-lg shadow-accent/25',
   secondary: 'bg-ink-100 hover:bg-ink-200 text-ink-800 dark:bg-ink-800 dark:hover:bg-ink-700 dark:text-ink-100',
   ghost: 'bg-transparent hover:bg-ink-100 text-ink-700 dark:hover:bg-ink-800 dark:text-ink-200',
   danger: 'bg-rose-500 hover:bg-rose-600 text-white',
@@ -25,7 +25,7 @@ export const Button = forwardRef<HTMLButtonElement, Props>(
       ref={ref}
       className={clsx(
         'inline-flex items-center justify-center gap-2 rounded-full font-medium transition-all',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ember-500/50',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         variants[variant],
         sizes[size],

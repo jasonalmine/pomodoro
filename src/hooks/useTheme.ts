@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import type { ThemeMode } from '../types'
+import type { Palette, ThemeMode } from '../types'
 
-export function useTheme(mode: ThemeMode) {
+export function useTheme(mode: ThemeMode, palette: Palette = 'ember') {
   useEffect(() => {
     const root = document.documentElement
     const apply = () => {
@@ -16,4 +16,10 @@ export function useTheme(mode: ThemeMode) {
       return () => mq.removeEventListener('change', apply)
     }
   }, [mode])
+
+  useEffect(() => {
+    const root = document.documentElement
+    root.classList.remove('palette-ember', 'palette-pine', 'palette-slate')
+    root.classList.add(`palette-${palette}`)
+  }, [palette])
 }

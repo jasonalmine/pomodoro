@@ -3,6 +3,10 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { ensureSeed } from './db'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
+import { useSync } from './hooks/useSync'
+import { usePageTitle } from './hooks/usePageTitle'
+import { useFaviconTimer } from './hooks/useFaviconTimer'
+import { useTimer } from './store/timer'
 import { Nav } from './components/Nav'
 import { TimerView } from './views/TimerView'
 import { CalendarView } from './views/CalendarView'
@@ -12,13 +16,19 @@ import { SettingsView } from './views/SettingsView'
 
 function Shell() {
   const settings = useSettings()
-  useTheme(settings.theme)
+  useTheme(settings.theme, settings.palette ?? 'ember')
+  useSync()
+  usePageTitle()
+  useFaviconTimer()
   useEffect(() => { void ensureSeed() }, [])
+
+  const phase = useTimer(s => s.phase)
+  const inSession = phase !== 'idle' && phase !== 'reflect'
 
   return (
     <div className="min-h-full flex">
-      <Nav />
-      <main className="flex-1 min-w-0 pb-24 lg:pb-0">
+      {!inSession && <Nav />}
+      <main className={`flex-1 min-w-0 ${inSession ? '' : 'pb-24 lg:pb-0'}`}>
         <Routes>
           <Route path="/" element={<TimerView />} />
           <Route path="/calendar" element={<CalendarView />} />

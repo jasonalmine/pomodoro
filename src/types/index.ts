@@ -45,6 +45,7 @@ export type AudioSettings = {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark'
+export type Palette = 'ember' | 'pine' | 'slate'
 
 export type Settings = {
   id: 'singleton'
@@ -54,6 +55,7 @@ export type Settings = {
   notifications: boolean
   wakeLock: boolean
   theme: ThemeMode
+  palette: Palette
   dailyGoalPomodoros: number
   pocketBaseUrl?: string
 }
@@ -65,6 +67,7 @@ export type Project = {
   description?: string
   archived: boolean
   createdAt: number
+  updatedAt: number
 }
 
 export type Pomodoro = {
@@ -77,5 +80,20 @@ export type Pomodoro = {
   actualSeconds: number
   completed: boolean
   note?: string
+  noteDone?: string
+  noteNext?: string
   ritualUsed: boolean
+  updatedAt: number
+}
+
+export type Template = {
+  id: string
+  name: string
+  projectId?: string
+  workMinutes: number
+  shortBreakMinutes: number
+  longBreakMinutes: number
+  useRitual: boolean
+  createdAt: number
+  updatedAt: number
 }

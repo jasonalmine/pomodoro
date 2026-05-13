@@ -49,8 +49,9 @@ type TimerState = {
   abort: () => void
   extend: (seconds: number) => void
   tick: () => void
-  saveReflection: (note: string) => Promise<void>
+  saveReflection: (input: string | { note?: string; done?: string; next?: string }) => Promise<void>
   dismissReflection: () => void
+  startStandaloneBreak: (type: 'short' | 'long', minutes: number) => void
 }
 
 function nowSec() { return Date.now() / 1000 }
@@ -163,6 +164,16 @@ export const useTimer = create<TimerState>((set, get) => ({
 
   abort: () => {
     clearBreathTimer()
+    const s = get()
+
+    // End during a work session: save the partial Pomodoro and roll straight into a running break.
+    if (s.phase === 'work' && s.plan && !s.isCompleting) {
+      const plan = s.plan
+      void endWorkIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, s.phaseDurationSec, set)
+      return
+    }
+
+    // Otherwise (breathing / meditation / break / idle / reflect): just stop.
     set({
       phase: 'idle',
       isRunning: false,
@@ -210,14 +221,42 @@ export const useTimer = create<TimerState>((set, get) => ({
     }
   },
 
-  saveReflection: async (note) => {
+  saveReflection: async (input) => {
     const id = get().lastCompletedPomodoroId
-    if (id && note.trim()) await db.pomodoros.update(id, { note: note.trim() })
+    if (!id) { advanceFromReflect(set, get); return }
+    const payload = typeof input === 'string'
+      ? { note: input.trim() }
+      : {
+          note: input.note?.trim() || undefined,
+          noteDone: input.done?.trim() || undefined,
+          noteNext: input.next?.trim() || undefined,
+        }
+    const hasAny = (payload.note || (payload as { noteDone?: string }).noteDone || (payload as { noteNext?: string }).noteNext)
+    if (hasAny) await db.pomodoros.update(id, { ...payload, updatedAt: Date.now() })
     advanceFromReflect(set, get)
   },
 
   dismissReflection: () => {
     advanceFromReflect(set, get)
+  },
+
+  startStandaloneBreak: (type, minutes) => {
+    clearBreathTimer()
+    const seconds = Math.max(1, Math.round(minutes * 60))
+    chime('start')
+    set({
+      plan: null,
+      phase: type === 'long' ? 'longBreak' : 'shortBreak',
+      isRunning: true,
+      phaseDurationSec: seconds,
+      phaseElapsedSec: 0,
+      phaseStartedAt: nowSec(),
+      breath: null,
+      currentPomodoroStartedAt: null,
+      lastCompletedPomodoroId: null,
+      isCompleting: false,
+      isOverflow: false,
+    })
   },
 }))
 
@@ -329,6 +368,7 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
     actualSeconds,
     completed: finishedFully,
     ritualUsed: plan.ritual.enabled,
+    updatedAt: endedAt,
   }
   await db.pomodoros.put(pomodoro)
   // Boundary chime already fired when overflow started. Skip it here to avoid a double-chime.
@@ -342,6 +382,55 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
     phaseStartedAt: null,
     phaseElapsedSec: 0,
     phaseDurationSec: 0,
+    currentPomodoroStartedAt: null,
+    isCompleting: false,
+    isOverflow: false,
+  })
+}
+
+async function endWorkIntoBreak(
+  plan: SessionPlan,
+  workCount: number,
+  currentPomodoroStartedAt: number | null,
+  isRunning: boolean,
+  phaseStartedAt: number | null,
+  phaseElapsedSec: number,
+  phaseDurationSec: number,
+  set: (p: Partial<TimerState>) => void,
+) {
+  set({ isCompleting: true })
+  const startedAt = currentPomodoroStartedAt ?? Date.now() - phaseDurationSec * 1000
+  const endedAt = Date.now()
+  // Use actual elapsed time, including the running fraction.
+  const elapsed = phaseElapsedSec + (isRunning && phaseStartedAt != null ? nowSec() - phaseStartedAt : 0)
+  const actualSeconds = Math.max(1, Math.round(elapsed))
+  const completed = actualSeconds >= phaseDurationSec - 1
+  const pomodoro: Pomodoro = {
+    id: crypto.randomUUID(),
+    projectId: plan.projectId,
+    task: plan.task || 'Focus session',
+    startedAt,
+    endedAt,
+    plannedSeconds: plan.workSeconds,
+    actualSeconds,
+    completed,
+    ritualUsed: plan.ritual.enabled,
+    updatedAt: endedAt,
+  }
+  await db.pomodoros.put(pomodoro)
+  chime('workEnd')
+  const newWorkCount = workCount + 1
+  const isLong = (newWorkCount % plan.longBreakEvery) === 0
+  const breakSec = isLong ? plan.longBreakSeconds : plan.shortBreakSeconds
+  set({
+    workCount: newWorkCount,
+    lastCompletedPomodoroId: pomodoro.id,
+    phase: isLong ? 'longBreak' : 'shortBreak',
+    isRunning: true,
+    phaseDurationSec: breakSec,
+    phaseElapsedSec: 0,
+    phaseStartedAt: nowSec(),
+    breath: null,
     currentPomodoroStartedAt: null,
     isCompleting: false,
     isOverflow: false,

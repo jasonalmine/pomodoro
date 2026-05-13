@@ -117,8 +117,11 @@ export async function importJson(file: File): Promise<ImportResult> {
   await db.transaction('rw', db.projects, db.pomodoros, db.settings, async () => {
     await db.projects.clear()
     await db.pomodoros.clear()
-    await db.projects.bulkPut(bundle.projects as Project[])
-    await db.pomodoros.bulkPut(bundle.pomodoros as Pomodoro[])
+    const now = Date.now()
+    const projects = (bundle.projects as Project[]).map(p => ({ ...p, updatedAt: p.updatedAt ?? p.createdAt ?? now }))
+    const pomodoros = (bundle.pomodoros as Pomodoro[]).map(p => ({ ...p, updatedAt: p.updatedAt ?? p.endedAt ?? p.startedAt ?? now }))
+    await db.projects.bulkPut(projects)
+    await db.pomodoros.bulkPut(pomodoros)
     if (bundle.settings) {
       await db.settings.put({ ...DEFAULT_SETTINGS, ...bundle.settings, id: 'singleton' })
     }

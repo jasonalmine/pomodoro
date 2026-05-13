@@ -93,9 +93,9 @@ function DayColumn({
   return (
     <div className="flex-1 min-w-[88px]">
       {showHeader && (
-        <div className={`px-1 pb-2 border-b border-ink-200 dark:border-ink-800 ${highlightToday && today ? 'text-ember-500' : 'text-ink-500'}`}>
+        <div className={`px-1 pb-2 border-b border-ink-200 dark:border-ink-800 ${highlightToday && today ? 'text-accent' : 'text-ink-500'}`}>
           <div className="text-[10px] uppercase tracking-wider">{format(date, 'EEE')}</div>
-          <div className={`text-lg font-display tabular ${today ? 'text-ember-500' : 'text-ink-900 dark:text-ink-50'}`}>
+          <div className={`text-lg font-display tabular ${today ? 'text-accent' : 'text-ink-900 dark:text-ink-50'}`}>
             {format(date, 'd')}
           </div>
           <div className="text-[10px] tabular text-ink-400">{totalMin > 0 ? fmtDuration(totalMin * 60) : '—'}</div>

@@ -23,7 +23,7 @@ export function Nav() {
             className={({ isActive }) => clsx(
               'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition',
               isActive
-                ? 'bg-ember-500/10 text-ember-600 dark:text-ember-400 font-medium'
+                ? 'bg-accent/10 text-accent-strong dark:text-accent-soft font-medium'
                 : 'text-ink-600 dark:text-ink-300 hover:bg-ink-100 dark:hover:bg-ink-900'
             )}
           >
@@ -39,7 +39,7 @@ export function Nav() {
             <NavLink key={to} to={to} end={end}
               className={({ isActive }) => clsx(
                 'flex flex-col items-center gap-0.5 py-2.5 text-[10px] uppercase tracking-wider transition',
-                isActive ? 'text-ember-500' : 'text-ink-500'
+                isActive ? 'text-accent' : 'text-ink-500'
               )}
             >
               <Icon size={20} />

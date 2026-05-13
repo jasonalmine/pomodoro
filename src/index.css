@@ -5,6 +5,19 @@
 @layer base {
   :root {
     color-scheme: light dark;
+    --accent: 255 106 55;        /* ember 500 */
+    --accent-strong: 224 79 31;  /* ember 600 */
+    --accent-soft: 255 138 91;   /* ember 400 */
+  }
+  html.palette-pine {
+    --accent: 22 132 99;
+    --accent-strong: 13 100 73;
+    --accent-soft: 52 168 130;
+  }
+  html.palette-slate {
+    --accent: 100 100 115;       /* ink-500 */
+    --accent-strong: 74 74 87;
+    --accent-soft: 138 138 153;
   }
   html, body, #root {
     height: 100%;

@@ -67,7 +67,7 @@ export function ProjectsView() {
                 </div>
                 {p.description && <div className="text-xs text-ink-500 truncate mt-1">{p.description}</div>}
               </button>
-              <Button variant="ghost" size="sm" onClick={() => db.projects.update(p.id, { archived: !p.archived })}>
+              <Button variant="ghost" size="sm" onClick={() => db.projects.update(p.id, { archived: !p.archived, updatedAt: Date.now() })}>
                 {p.archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
               </Button>
               <Button variant="ghost" size="sm" onClick={async () => {
@@ -91,13 +91,15 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
 
   const save = () => {
     if (!name.trim()) return
+    const now = Date.now()
     onSave({
       id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
       color,
       description: description.trim() || undefined,
       archived: initial?.archived ?? false,
-      createdAt: initial?.createdAt ?? Date.now(),
+      createdAt: initial?.createdAt ?? now,
+      updatedAt: now,
     })
   }
 

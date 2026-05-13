@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react'
-import { Download, FileDown, Upload } from 'lucide-react'
-import { BREATH_PATTERNS } from '../db'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { Bookmark, Cloud, CloudOff, Download, FileDown, LogOut, RefreshCw, Trash2, Upload } from 'lucide-react'
+import { BREATH_PATTERNS, db } from '../db'
 import { useSettings, updateSettings } from '../hooks/useSettings'
+import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
+import { signInWithEmail, signOut, syncNow } from '../lib/sync'
 import { Button } from '../components/Button'
-import type { AmbientId, ThemeMode } from '../types'
+import type { AmbientId, Palette, ThemeMode } from '../types'
 
 export function SettingsView() {
   const s = useSettings()
@@ -39,10 +42,13 @@ export function SettingsView() {
             onChange={v => updateSettings({ timer: { ...s.timer, longBreakEvery: v } })} />
         </div>
         <div className="flex flex-col gap-2 pt-1">
-          <Toggle label="Auto-start breaks" checked={s.timer.autoStartBreaks}
+          <Toggle label="Auto-start breaks after work" checked={s.timer.autoStartBreaks}
             onChange={v => updateSettings({ timer: { ...s.timer, autoStartBreaks: v } })} />
           <Toggle label="Auto-start next focus after break" checked={s.timer.autoStartWork}
             onChange={v => updateSettings({ timer: { ...s.timer, autoStartWork: v } })} />
+          <p className="text-[11px] text-ink-500 -mt-1">
+            Off (default) gives you a moment to decide before each phase starts.
+          </p>
         </div>
       </Section>
 
@@ -111,10 +117,194 @@ export function SettingsView() {
             ))}
           </div>
         </Field>
+        <Field label="Palette">
+          <div className="flex gap-2">
+            {([
+              { id: 'ember', label: 'Ember', swatch: '#ff6a37' },
+              { id: 'pine', label: 'Pine', swatch: '#168463' },
+              { id: 'slate', label: 'Slate', swatch: '#646473' },
+            ] as Array<{ id: Palette; label: string; swatch: string }>).map(p => (
+              <button key={p.id} onClick={() => updateSettings({ palette: p.id })}
+                className={`flex-1 h-10 rounded-xl border text-sm transition flex items-center justify-center gap-2
+                  ${(s.palette ?? 'ember') === p.id ? 'bg-ink-900 text-white dark:bg-ink-50 dark:text-ink-900 border-transparent' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-700 dark:text-ink-200'}`}>
+                <span className="h-3 w-3 rounded-full" style={{ background: p.swatch }} />
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </Field>
       </Section>
+
+      <TemplatesSection />
+
+      <CloudSyncSection />
 
       <DataSection />
     </div>
+  )
+}
+
+function NewTemplateButton() {
+  const s = useSettings()
+  const onClick = async () => {
+    const name = window.prompt('Template name (e.g. "Deep Work"):')?.trim()
+    if (!name) return
+    const now = Date.now()
+    await db.templates.put({
+      id: crypto.randomUUID(),
+      name,
+      workMinutes: s.timer.workMinutes,
+      shortBreakMinutes: s.timer.shortBreakMinutes,
+      longBreakMinutes: s.timer.longBreakMinutes,
+      useRitual: s.ritual.enabled,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+  return (
+    <Button variant="secondary" size="sm" onClick={onClick}>
+      <Bookmark size={14} /> New template
+    </Button>
+  )
+}
+
+function TemplatesSection() {
+  const templates = useLiveQuery(() => db.templates.orderBy('createdAt').toArray(), [], [])
+
+  if (!templates || templates.length === 0) {
+    return (
+      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Templates</h2>
+        <p className="text-xs text-ink-500">
+          Save preset focus combos (project + durations + ritual) for one-tap launch from the Timer screen.
+        </p>
+        <NewTemplateButton />
+      </section>
+    )
+  }
+
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Templates</h2>
+        <NewTemplateButton />
+      </div>
+      <div className="space-y-2">
+        {templates.map(t => (
+          <div key={t.id} className="flex items-center gap-3 rounded-xl border border-ink-200 dark:border-ink-800 p-3">
+            <Bookmark size={16} className="text-accent shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium text-ink-900 dark:text-ink-100 truncate">{t.name}</div>
+              <div className="text-[11px] text-ink-500 tabular">
+                {t.workMinutes}m focus · {t.shortBreakMinutes}m short · {t.longBreakMinutes}m long
+                {t.useRitual ? ' · with ritual' : ''}
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" onClick={async () => {
+              if (!confirm(`Delete template "${t.name}"?`)) return
+              await db.templates.delete(t.id)
+            }}>
+              <Trash2 size={14} className="text-rose-500" />
+            </Button>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function CloudSyncSection() {
+  const sync = useSync()
+  const [email, setEmail] = useState('')
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  if (!sync.enabled) {
+    return (
+      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+        <div className="flex items-center gap-2">
+          <CloudOff size={18} className="text-ink-400" />
+          <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Cloud sync</h2>
+        </div>
+        <p className="text-xs text-ink-500">
+          Not configured. Set <code className="font-mono">VITE_SUPABASE_URL</code> and <code className="font-mono">VITE_SUPABASE_ANON_KEY</code> environment variables to enable cross-device sync. See <code className="font-mono">docs/SUPABASE_SETUP.md</code>.
+        </p>
+      </section>
+    )
+  }
+
+  const onSendLink = async () => {
+    if (!email.trim()) return
+    setBusy(true)
+    setStatus(null)
+    try {
+      await signInWithEmail(email.trim())
+      setStatus({ kind: 'ok', text: `Magic link sent to ${email.trim()}. Check your inbox.` })
+    } catch (e) {
+      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Failed to send link.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onSyncNow = async () => {
+    setBusy(true)
+    setStatus(null)
+    try {
+      await syncNow()
+      setStatus({ kind: 'ok', text: 'Synced.' })
+    } catch (e) {
+      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Sync failed.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Cloud size={18} className="text-accent" />
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Cloud sync</h2>
+      </div>
+      {sync.user ? (
+        <>
+          <p className="text-xs text-ink-500">
+            Signed in as <span className="text-ink-700 dark:text-ink-200 font-medium">{sync.user.email}</span>. Your projects and sessions sync across every device you sign in on.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={onSyncNow} disabled={busy || sync.syncing}>
+              <RefreshCw size={16} className={sync.syncing ? 'animate-spin' : ''} /> {sync.syncing ? 'Syncing…' : 'Sync now'}
+            </Button>
+            <Button variant="ghost" onClick={() => void signOut()} disabled={busy}>
+              <LogOut size={16} /> Sign out
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-ink-500">
+            Sign in to back up your data and access it on every device. We'll email you a magic link, no password.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              className="flex-1 rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+            />
+            <Button onClick={onSendLink} disabled={busy || !email.trim()}>
+              {busy ? 'Sending…' : 'Send magic link'}
+            </Button>
+          </div>
+        </>
+      )}
+      {(status || sync.lastError) && (
+        <div className={`text-xs ${status?.kind === 'err' || sync.lastError ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+          {status?.text || sync.lastError}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -212,7 +402,7 @@ function Toggle({ label, checked, onChange, onPreview }: { label: string; checke
       <button onClick={onPreview} className="flex-1 text-left text-sm text-ink-700 dark:text-ink-200">{label}</button>
       <button
         onClick={() => onChange(!checked)}
-        className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-ember-500' : 'bg-ink-200 dark:bg-ink-700'}`}
+        className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-accent' : 'bg-ink-200 dark:bg-ink-700'}`}
         aria-pressed={checked}
       >
         <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
@@ -232,7 +422,7 @@ function Slider({ label, value, onChange, preview }: { label: string; value: num
         type="range" min={0} max={1} step={0.01} value={value}
         onChange={e => onChange(Number(e.target.value))}
         onMouseUp={preview} onTouchEnd={preview}
-        className="w-full accent-ember-500"
+        className="w-full accent-accent"
       />
     </div>
   )

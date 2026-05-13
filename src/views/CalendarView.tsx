@@ -219,7 +219,7 @@ function MonthGrid({
             onClick={() => onSelect(day)}
             className={`relative aspect-square rounded-xl border text-left p-2 transition group
               ${inMonth ? 'border-ink-200 dark:border-ink-800' : 'border-transparent opacity-40'}
-              ${isSel ? 'ring-2 ring-ember-500' : ''}
+              ${isSel ? 'ring-2 ring-accent' : ''}
             `}
             style={{
               backgroundColor: intensity > 0
@@ -227,7 +227,7 @@ function MonthGrid({
                 : undefined,
             }}
           >
-            <div className={`text-xs font-medium ${isToday(day) ? 'text-ember-500' : 'text-ink-700 dark:text-ink-200'}`}>
+            <div className={`text-xs font-medium ${isToday(day) ? 'text-accent' : 'text-ink-700 dark:text-ink-200'}`}>
               {format(day, 'd')}
             </div>
             {list.length > 0 && (
