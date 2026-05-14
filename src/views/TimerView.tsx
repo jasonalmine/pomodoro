@@ -14,6 +14,7 @@ import { RingTimer } from '../components/RingTimer'
 import { GoalRing } from '../components/GoalRing'
 import { BreathingCircle } from '../components/BreathingCircle'
 import { ProjectChip } from '../components/ProjectChip'
+import { DurationStepper } from '../components/DurationStepper'
 import { fmtDuration } from '../lib/format'
 import { todayBounds, totalsInWindow, recentTasks } from '../lib/stats'
 import type { Project, Template } from '../types'
@@ -40,6 +41,10 @@ export function TimerView() {
   const phaseElapsedSec = useTimer(s => s.phaseElapsedSec)
   const phaseStartedAt = useTimer(s => s.phaseStartedAt)
   const phaseDurationSec = useTimer(s => s.phaseDurationSec)
+  const planProjectId = useTimer(s => s.plan?.projectId ?? null)
+  const setPlanProject = useTimer(s => s.setProject)
+  const storedProjectId = useTimer(s => s.selectedProjectId)
+  const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
 
   const [mode, setMode] = useState<'focus' | 'short' | 'long'>('focus')
 
@@ -72,7 +77,11 @@ export function TimerView() {
   }
 
 
-  const [projectId, setProjectId] = useState<string>('')
+  const [projectId, setProjectIdLocal] = useState<string>(storedProjectId ?? '')
+  const setProjectId = (id: string) => {
+    setProjectIdLocal(id)
+    setStoredProjectId(id)
+  }
   const [task, setTask] = useState('')
   const [workMin, setWorkMin] = useState<number | null>(null)
   const [shortMin, setShortMin] = useState<number | null>(null)
@@ -84,7 +93,16 @@ export function TimerView() {
   useEffect(() => { if (shortMin === null) setShortMin(settings.timer.shortBreakMinutes) }, [settings.timer.shortBreakMinutes, shortMin])
   useEffect(() => { if (longMin === null) setLongMin(settings.timer.longBreakMinutes) }, [settings.timer.longBreakMinutes, longMin])
   useEffect(() => { if (useRitual === null) setUseRitual(settings.ritual.enabled) }, [settings.ritual.enabled, useRitual])
-  useEffect(() => { if (!projectId && active.length) setProjectId(active[0].id) }, [active, projectId])
+  useEffect(() => {
+    if (!active.length) return
+    const saved = storedProjectId ?? projectId
+    if (saved && active.some(p => p.id === saved)) {
+      if (projectId !== saved) setProjectIdLocal(saved)
+      return
+    }
+    setProjectId(active[0].id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, storedProjectId])
 
   const workMinVal = workMin ?? settings.timer.workMinutes
   const shortMinVal = shortMin ?? settings.timer.shortBreakMinutes
@@ -95,7 +113,7 @@ export function TimerView() {
   const wakeActive = isRunning && (phase === 'work' || phase === 'shortBreak' || phase === 'longBreak')
   useWakeLock(wakeActive, settings.wakeLock)
 
-  const currentProject = (allProjects ?? []).find(p => p.id === projectId) ?? null
+  const activeProject = (allProjects ?? []).find(p => p.id === (planProjectId ?? projectId)) ?? null
 
   const onStart = async () => {
     if (!projectId) return
@@ -153,6 +171,10 @@ export function TimerView() {
             </div>
 
             <div className="flex justify-center">
+              <DurationStepper label="Focus" value={workMinVal} onChange={setWorkMin} min={5} max={120} step={5} />
+            </div>
+
+            <div className="flex justify-center">
               <Button size="lg" className="w-full max-w-sm" onClick={onStart} disabled={!projectId || active.length === 0}>
                 {useRitualVal ? 'Begin Ritual' : 'Start Focus'}
               </Button>
@@ -179,7 +201,7 @@ export function TimerView() {
             )}
 
             <p className="text-center text-[11px] text-ink-400">
-              {workMinVal}m focus · adjust defaults in <a href="/settings" className="underline decoration-dotted hover:text-ink-700 dark:hover:text-ink-200">Settings</a>
+              Adjust defaults in <a href="/settings" className="underline decoration-dotted hover:text-ink-700 dark:hover:text-ink-200">Settings</a>
             </p>
           </>
         ) : (
@@ -191,11 +213,11 @@ export function TimerView() {
               <p className="text-sm text-ink-500">Step away. The timer will let you know when time is up.</p>
             </div>
 
-            <div className="max-w-xs mx-auto">
+            <div className="flex justify-center">
               {mode === 'short' ? (
-                <NumberField label="Short break" value={shortMinVal} onChange={setShortMin} min={1} max={60} suffix="m" />
+                <DurationStepper label="Short break" value={shortMinVal} onChange={setShortMin} min={1} max={60} step={1} />
               ) : (
-                <NumberField label="Long break" value={longMinVal} onChange={setLongMin} min={1} max={120} suffix="m" />
+                <DurationStepper label="Long break" value={longMinVal} onChange={setLongMin} min={5} max={120} step={5} />
               )}
             </div>
 
@@ -233,8 +255,14 @@ export function TimerView() {
       </div>
 
       <div key={phase} className="space-y-2 animate-[fadeIn_300ms_ease-out]">
-        {currentProject && phase === 'work' && (
-          <div className="flex justify-center"><ProjectChip project={currentProject} /></div>
+        {activeProject && phase === 'work' && (
+          <div className="flex justify-center">
+            <ProjectSwitcher
+              projects={active}
+              value={activeProject.id}
+              onChange={setPlanProject}
+            />
+          </div>
         )}
         <div className="font-display text-2xl sm:text-3xl text-ink-900 dark:text-ink-50 px-6 max-w-xl mx-auto leading-tight">
           {intentionText}
@@ -328,6 +356,73 @@ function ProjectPicker({ projects, value, onChange }: { projects: Project[]; val
   )
 }
 
+function ProjectSwitcher({ projects, value, onChange }: { projects: Project[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = () => setOpen(false)
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const t = setTimeout(() => document.addEventListener('click', onDocClick), 0)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('click', onDocClick)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const current = projects.find(p => p.id === value)
+  if (!current) return null
+
+  return (
+    <div className="relative" onClick={e => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium hover:opacity-80 transition"
+        style={{ backgroundColor: `${current.color}1a`, color: current.color }}
+        title="Change project"
+      >
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: current.color }} />
+        {current.name}
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+          <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-1/2 -translate-x-1/2 mt-2 min-w-[12rem] max-h-64 overflow-y-auto rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 shadow-lg p-1 z-20"
+        >
+          {projects.map(p => {
+            const selected = p.id === value
+            return (
+              <button
+                key={p.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => { onChange(p.id); setOpen(false) }}
+                className={
+                  'w-full flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-left transition ' +
+                  (selected
+                    ? 'bg-ink-100 dark:bg-ink-800 text-ink-900 dark:text-ink-50'
+                    : 'text-ink-700 dark:text-ink-200 hover:bg-ink-50 dark:hover:bg-ink-800')
+                }
+              >
+                <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                <span className="truncate">{p.name}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ModePicker({ mode, onChange }: { mode: 'focus' | 'short' | 'long'; onChange: (m: 'focus' | 'short' | 'long') => void }) {
   const tabs: Array<{ key: 'focus' | 'short' | 'long'; label: string }> = [
     { key: 'focus', label: 'Focus' },
@@ -360,22 +455,6 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="inline-flex items-center rounded-md border border-ink-200 bg-ink-50 px-1.5 py-0.5 text-[10px] font-medium text-ink-600 dark:border-ink-700 dark:bg-ink-800 dark:text-ink-300">
       {children}
     </kbd>
-  )
-}
-
-function NumberField({ label, value, onChange, min, max, suffix }: { label: string; value: number; onChange: (v: number) => void; min: number; max: number; suffix?: string }) {
-  return (
-    <label className="block space-y-1.5">
-      <span className="text-xs font-medium uppercase tracking-wider text-ink-500">{label}</span>
-      <div className="relative">
-        <input
-          type="number" inputMode="numeric" min={min} max={max} value={value}
-          onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
-          className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-7"
-        />
-        {suffix && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-400">{suffix}</span>}
-      </div>
-    </label>
   )
 }
 

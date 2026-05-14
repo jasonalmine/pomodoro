@@ -40,6 +40,8 @@ type TimerState = {
   lastCompletedPomodoroId: string | null
   isCompleting: boolean
   isOverflow: boolean
+  selectedProjectId: string | null
+  setSelectedProjectId: (id: string) => void
 
   prepare: (plan: SessionPlan) => void
   start: () => void
@@ -52,9 +54,18 @@ type TimerState = {
   saveReflection: (input: string | { note?: string; done?: string; next?: string }) => Promise<void>
   dismissReflection: () => void
   startStandaloneBreak: (type: 'short' | 'long', minutes: number) => void
+  setProject: (projectId: string) => void
 }
 
 function nowSec() { return Date.now() / 1000 }
+
+const SELECTED_PROJECT_KEY = 'pomodoro.selectedProjectId'
+function loadSelectedProjectId(): string | null {
+  try { return localStorage.getItem(SELECTED_PROJECT_KEY) } catch { return null }
+}
+function persistSelectedProjectId(id: string) {
+  try { localStorage.setItem(SELECTED_PROJECT_KEY, id) } catch { /* ignore */ }
+}
 
 function patternStages(patternId: string): Array<[BreathStage, number]> {
   const p = BREATH_PATTERNS.find(b => b.id === patternId) ?? BREATH_PATTERNS[0]
@@ -89,6 +100,11 @@ export const useTimer = create<TimerState>((set, get) => ({
   lastCompletedPomodoroId: null,
   isCompleting: false,
   isOverflow: false,
+  selectedProjectId: loadSelectedProjectId(),
+  setSelectedProjectId: (id) => {
+    persistSelectedProjectId(id)
+    set({ selectedProjectId: id })
+  },
 
   prepare: (plan) => {
     clearBreathTimer()
@@ -238,6 +254,13 @@ export const useTimer = create<TimerState>((set, get) => ({
 
   dismissReflection: () => {
     advanceFromReflect(set, get)
+  },
+
+  setProject: (projectId) => {
+    const s = get()
+    if (!s.plan) return
+    if (!projectId || projectId === s.plan.projectId) return
+    set({ plan: { ...s.plan, projectId } })
   },
 
   startStandaloneBreak: (type, minutes) => {
