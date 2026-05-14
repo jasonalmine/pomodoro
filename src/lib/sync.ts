@@ -4,7 +4,7 @@
 import type { User } from '@supabase/supabase-js'
 import { db } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
-import type { Pomodoro, Project } from '../types'
+import type { Pomodoro, Project, Task, Template } from '../types'
 
 const LAST_SYNC_KEY = 'pomodoro:lastSyncedAt'
 
@@ -23,6 +23,7 @@ type PomodoroRow = {
   id: string
   user_id: string
   project_id: string | null
+  task_id: string | null
   task: string | null
   started_at: number
   ended_at: number | null
@@ -30,7 +31,36 @@ type PomodoroRow = {
   actual_seconds: number | null
   completed: boolean | null
   note: string | null
+  note_done: string | null
+  note_next: string | null
   ritual_used: boolean | null
+  updated_at: number
+}
+
+type TaskRow = {
+  id: string
+  user_id: string
+  project_id: string
+  name: string
+  est_pomodoros: number
+  completed: boolean
+  completed_at: number | null
+  archived_at: number | null
+  order: number
+  created_at: number
+  updated_at: number
+}
+
+type TemplateRow = {
+  id: string
+  user_id: string
+  name: string
+  project_id: string | null
+  work_minutes: number
+  short_break_minutes: number
+  long_break_minutes: number
+  use_ritual: boolean
+  created_at: number
   updated_at: number
 }
 
@@ -64,6 +94,7 @@ function pomodoroToRow(p: Pomodoro, userId: string): PomodoroRow {
     id: p.id,
     user_id: userId,
     project_id: p.projectId || null,
+    task_id: p.taskId ?? null,
     task: p.task,
     started_at: p.startedAt,
     ended_at: p.endedAt,
@@ -71,6 +102,8 @@ function pomodoroToRow(p: Pomodoro, userId: string): PomodoroRow {
     actual_seconds: p.actualSeconds,
     completed: p.completed,
     note: p.note ?? null,
+    note_done: p.noteDone ?? null,
+    note_next: p.noteNext ?? null,
     ritual_used: p.ritualUsed,
     updated_at: p.updatedAt,
   }
@@ -80,6 +113,7 @@ function rowToPomodoro(r: PomodoroRow): Pomodoro {
   return {
     id: r.id,
     projectId: r.project_id ?? '',
+    taskId: r.task_id ?? undefined,
     task: r.task ?? '',
     startedAt: r.started_at,
     endedAt: r.ended_at ?? r.started_at,
@@ -87,7 +121,69 @@ function rowToPomodoro(r: PomodoroRow): Pomodoro {
     actualSeconds: r.actual_seconds ?? 0,
     completed: r.completed ?? false,
     note: r.note ?? undefined,
+    noteDone: r.note_done ?? undefined,
+    noteNext: r.note_next ?? undefined,
     ritualUsed: r.ritual_used ?? false,
+    updatedAt: r.updated_at,
+  }
+}
+
+function taskToRow(t: Task, userId: string): TaskRow {
+  return {
+    id: t.id,
+    user_id: userId,
+    project_id: t.projectId,
+    name: t.name,
+    est_pomodoros: t.estPomodoros,
+    completed: t.completed,
+    completed_at: t.completedAt ?? null,
+    archived_at: t.archivedAt ?? null,
+    order: t.order,
+    created_at: t.createdAt,
+    updated_at: t.updatedAt,
+  }
+}
+
+function rowToTask(r: TaskRow): Task {
+  return {
+    id: r.id,
+    projectId: r.project_id,
+    name: r.name,
+    estPomodoros: r.est_pomodoros,
+    completed: r.completed,
+    completedAt: r.completed_at ?? undefined,
+    archivedAt: r.archived_at ?? undefined,
+    order: r.order,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
+function templateToRow(t: Template, userId: string): TemplateRow {
+  return {
+    id: t.id,
+    user_id: userId,
+    name: t.name,
+    project_id: t.projectId ?? null,
+    work_minutes: t.workMinutes,
+    short_break_minutes: t.shortBreakMinutes,
+    long_break_minutes: t.longBreakMinutes,
+    use_ritual: t.useRitual,
+    created_at: t.createdAt,
+    updated_at: t.updatedAt,
+  }
+}
+
+function rowToTemplate(r: TemplateRow): Template {
+  return {
+    id: r.id,
+    name: r.name,
+    projectId: r.project_id ?? undefined,
+    workMinutes: r.work_minutes,
+    shortBreakMinutes: r.short_break_minutes,
+    longBreakMinutes: r.long_break_minutes,
+    useRitual: r.use_ritual,
+    createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
 }
@@ -137,9 +233,11 @@ export async function signOut(): Promise<void> {
 
 async function pushDirty(userId: string, since: number): Promise<void> {
   if (!supabase) return
-  const [projects, pomodoros] = await Promise.all([
+  const [projects, pomodoros, tasks, templates] = await Promise.all([
     db.projects.where('updatedAt').above(since).toArray(),
     db.pomodoros.where('updatedAt').above(since).toArray(),
+    db.tasks.where('updatedAt').above(since).toArray(),
+    db.templates.where('updatedAt').above(since).toArray(),
   ])
 
   if (projects.length) {
@@ -153,18 +251,34 @@ async function pushDirty(userId: string, since: number): Promise<void> {
     const { error } = await supabase.from('pomodoros').upsert(rows, { onConflict: 'id' })
     if (error) throw error
   }
+
+  if (tasks.length) {
+    const rows = tasks.map(t => taskToRow(t, userId))
+    const { error } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
+    if (error) throw error
+  }
+
+  if (templates.length) {
+    const rows = templates.map(t => templateToRow(t, userId))
+    const { error } = await supabase.from('templates').upsert(rows, { onConflict: 'id' })
+    if (error) throw error
+  }
 }
 
 async function pullSince(userId: string, since: number): Promise<number> {
   if (!supabase) return since
 
-  const [projRes, pomRes] = await Promise.all([
+  const [projRes, pomRes, taskRes, tmplRes] = await Promise.all([
     supabase.from('projects').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('pomodoros').select('*').eq('user_id', userId).gt('updated_at', since),
+    supabase.from('tasks').select('*').eq('user_id', userId).gt('updated_at', since),
+    supabase.from('templates').select('*').eq('user_id', userId).gt('updated_at', since),
   ])
 
   if (projRes.error) throw projRes.error
   if (pomRes.error) throw pomRes.error
+  if (taskRes.error) throw taskRes.error
+  if (tmplRes.error) throw tmplRes.error
 
   let maxUpdated = since
 
@@ -194,6 +308,34 @@ async function pullSince(userId: string, since: number): Promise<number> {
       if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
     })
     if (toPut.length) await db.pomodoros.bulkPut(toPut)
+  }
+
+  const taskRows = (taskRes.data ?? []) as TaskRow[]
+  if (taskRows.length) {
+    const local = await db.tasks.bulkGet(taskRows.map(r => r.id))
+    const toPut: Task[] = []
+    taskRows.forEach((r, i) => {
+      const existing = local[i]
+      if (!existing || existing.updatedAt < r.updated_at) {
+        toPut.push(rowToTask(r))
+      }
+      if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
+    })
+    if (toPut.length) await db.tasks.bulkPut(toPut)
+  }
+
+  const tmplRows = (tmplRes.data ?? []) as TemplateRow[]
+  if (tmplRows.length) {
+    const local = await db.templates.bulkGet(tmplRows.map(r => r.id))
+    const toPut: Template[] = []
+    tmplRows.forEach((r, i) => {
+      const existing = local[i]
+      if (!existing || existing.updatedAt < r.updated_at) {
+        toPut.push(rowToTemplate(r))
+      }
+      if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
+    })
+    if (toPut.length) await db.templates.bulkPut(toPut)
   }
 
   return maxUpdated

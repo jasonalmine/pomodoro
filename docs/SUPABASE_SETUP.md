@@ -12,49 +12,11 @@ Cloud sync is optional. Without it, the app works fully local (IndexedDB only). 
 
 ### 2. Run the schema
 
-Open the SQL Editor in the Supabase dashboard and paste this:
+Open the SQL Editor in the Supabase dashboard and paste the contents of [`docs/supabase-schema.sql`](./supabase-schema.sql).
 
-```sql
-create table projects (
-  id text primary key,
-  user_id uuid references auth.users not null,
-  name text not null,
-  color text,
-  description text,
-  archived boolean default false,
-  created_at bigint not null,
-  updated_at bigint not null
-);
+That file creates four tables — `projects`, `pomodoros`, `tasks`, `templates` — each gated by row-level security (`auth.uid() = user_id`). It's idempotent: every statement uses `IF NOT EXISTS` / `IF NOT EXISTS` policies / `ADD COLUMN IF NOT EXISTS`, so you can also rerun it on an existing project to bring it up to date.
 
-create table pomodoros (
-  id text primary key,
-  user_id uuid references auth.users not null,
-  project_id text,
-  task text,
-  started_at bigint not null,
-  ended_at bigint,
-  planned_seconds int,
-  actual_seconds int,
-  completed boolean,
-  note text,
-  ritual_used boolean,
-  updated_at bigint not null
-);
-
--- Row level security
-alter table projects enable row level security;
-alter table pomodoros enable row level security;
-
-create policy "Users manage their own projects" on projects
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-create policy "Users manage their own pomodoros" on pomodoros
-  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
--- Helpful indexes for incremental sync
-create index projects_user_updated on projects (user_id, updated_at);
-create index pomodoros_user_updated on pomodoros (user_id, updated_at);
-```
+If you set up the database before tasks/templates landed, the same file will patch your existing tables in place (it adds `task_id`, `note_done`, `note_next` to `pomodoros`, and creates the missing tables).
 
 ### 3. Allow magic-link logins
 
@@ -98,7 +60,7 @@ Open Settings, scroll to **Cloud sync**, enter your email, click "Send magic lin
 - Every write to Dexie is followed by a debounced push to Supabase (1.5s delay).
 - Every 60s + on tab visibility/online events, a `syncNow()` runs which pushes dirty rows then pulls remote changes.
 - Conflict resolution: last-write-wins via `updatedAt` timestamps.
-- Settings stay device-local in v1 (sync only covers projects + pomodoros).
+- Sync covers `projects`, `pomodoros`, `tasks`, and `templates`. Settings stay device-local on purpose (a different audio preference per device is sometimes useful).
 
 ## Notes
 

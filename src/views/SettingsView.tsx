@@ -269,7 +269,12 @@ function CloudSyncSection() {
       {sync.user ? (
         <>
           <p className="text-xs text-ink-500">
-            Signed in as <span className="text-ink-700 dark:text-ink-200 font-medium">{sync.user.email}</span>. Your projects and sessions sync across every device you sign in on.
+            Signed in as <span className="text-ink-700 dark:text-ink-200 font-medium">{sync.user.email}</span>. Projects, sessions, tasks, and templates sync across every device you sign in on.
+          </p>
+          <p className="text-[11px] text-ink-400 tabular">
+            {sync.lastSyncedAt > 0
+              ? <>Last synced {fmtRelative(sync.lastSyncedAt)}</>
+              : <>Not synced yet on this device.</>}
           </p>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" onClick={onSyncNow} disabled={busy || sync.syncing}>
@@ -282,6 +287,9 @@ function CloudSyncSection() {
         </>
       ) : (
         <>
+          <div className="rounded-xl border border-amber-300/60 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/10 px-3 py-2.5 text-xs text-amber-900 dark:text-amber-200">
+            Cloud sync is configured but you're <span className="font-medium">not signed in</span>. Your data lives only in this browser. Sign in below to start backing it up.
+          </div>
           <p className="text-xs text-ink-500">
             Sign in to back up your data and access it on every device. We'll email you a magic link, no password.
           </p>
@@ -409,6 +417,20 @@ function Toggle({ label, checked, onChange, onPreview }: { label: string; checke
       </button>
     </div>
   )
+}
+
+function fmtRelative(ts: number): string {
+  const diffMs = Date.now() - ts
+  if (diffMs < 0) return 'just now'
+  const sec = Math.round(diffMs / 1000)
+  if (sec < 10) return 'just now'
+  if (sec < 60) return `${sec}s ago`
+  const min = Math.round(sec / 60)
+  if (min < 60) return `${min} min ago`
+  const hr = Math.round(min / 60)
+  if (hr < 24) return `${hr}h ago`
+  const day = Math.round(hr / 24)
+  return `${day}d ago`
 }
 
 function Slider({ label, value, onChange, preview }: { label: string; value: number; onChange: (v: number) => void; preview?: () => void }) {

@@ -53,7 +53,7 @@ Last updated: 2026-05-14 (Tasks under projects + estimated Pomodoros + finish-ti
 - [ ] Daylight savings boundary — does a session that crosses 2am→3am break the calendar?
 
 ## Open follow-ups for tasks
-- [ ] Cloud sync (Supabase): currently tasks are local-only
+- [x] Cloud sync (Supabase) for tasks + templates + new reflection fields + pomodoro.taskId
 - [ ] Mid-session task switcher in active screen (today only the project chip is interactive)
 - [ ] Per-task drill-in / detail view
 - [ ] Drag-reorder tasks (currently `order` is set to createdAt; no UI to change)
