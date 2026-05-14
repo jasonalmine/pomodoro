@@ -55,6 +55,8 @@ type TimerState = {
   dismissReflection: () => void
   startStandaloneBreak: (type: 'short' | 'long', minutes: number) => void
   setProject: (projectId: string) => void
+  setTask: (task: string) => void
+  adjustPhase: (seconds: number) => void
 }
 
 function nowSec() { return Date.now() / 1000 }
@@ -261,6 +263,33 @@ export const useTimer = create<TimerState>((set, get) => ({
     if (!s.plan) return
     if (!projectId || projectId === s.plan.projectId) return
     set({ plan: { ...s.plan, projectId } })
+  },
+
+  setTask: (task) => {
+    const s = get()
+    if (!s.plan) return
+    set({ plan: { ...s.plan, task } })
+  },
+
+  adjustPhase: (seconds) => {
+    const s = get()
+    if (s.phase !== 'work' && s.phase !== 'shortBreak' && s.phase !== 'longBreak') return
+    if (s.isCompleting) return
+    // Positive adjustment in overflow snaps back to countdown by absorbing the overshoot.
+    if (s.isOverflow && s.phaseStartedAt != null && seconds > 0) {
+      const elapsed = s.phaseElapsedSec + (nowSec() - s.phaseStartedAt)
+      const overshoot = Math.max(0, elapsed - s.phaseDurationSec)
+      set({
+        phaseDurationSec: s.phaseDurationSec + overshoot + seconds,
+        isOverflow: false,
+      })
+      return
+    }
+    // Allow shortening; clamp absolute duration to a 30s minimum so users
+    // can't accidentally zero out a running phase. If the new duration is
+    // below elapsed, the tick handler will enter overflow on the next tick.
+    const newDuration = Math.max(30, s.phaseDurationSec + seconds)
+    set({ phaseDurationSec: newDuration })
   },
 
   startStandaloneBreak: (type, minutes) => {

@@ -14,9 +14,10 @@ export function useKeyboardShortcuts() {
     function onKeyDown(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (isTypingTarget(e.target)) return
+      const shift = e.shiftKey
 
       const state = useTimer.getState()
-      const { phase, isRunning, pause, resume, skip, abort, extend } = state
+      const { phase, isRunning, pause, resume, skip, abort, extend, adjustPhase } = state
 
       // Only act during an active session (not idle, not reflect, not breathing prep)
       const active = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak' || phase === 'meditation'
@@ -33,7 +34,8 @@ export function useKeyboardShortcuts() {
         const canExtend = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
         if (!canExtend) return
         e.preventDefault()
-        extend(5 * 60)
+        if (shift) adjustPhase(-5 * 60)
+        else extend(5 * 60)
       } else if (key === 'Escape') {
         e.preventDefault()
         abort()

@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-12 (Session-inspired UI/UX overhaul + templates + page-title timer + theme palettes shipped)
+Last updated: 2026-05-14 (Idle duration steppers, mid-session project + task switcher, ±5 min adjust, resume-last, persisted project selection)
 
 ---
 
@@ -33,6 +33,12 @@ Last updated: 2026-05-12 (Session-inspired UI/UX overhaul + templates + page-tit
 - [x] Reflection panel with structured prompts (`What did you finish?` / `What's next?` / freeform)
 - [x] Session templates: save current combo as a one-tap template; manage in Settings
 - [x] Insights tabs: Today / Week / All-time / Year, with lifetime stat cards and GitHub-style year heatmap
+- [x] Idle screen: +/- duration steppers for focus / short / long break (no Settings round-trip)
+- [x] Mid-session project switcher (chip → dropdown)
+- [x] Persist selected project across navigation + reload (localStorage-backed in timer store)
+- [x] Edit task mid-session (click intention text to rename in place)
+- [x] ±5 min during active phase (shorten or extend), `Shift+E` shortcut for −5
+- [x] Resume last session card on idle (prefills project + task + duration)
 
 ## QA gaps to verify
 
@@ -44,8 +50,6 @@ Last updated: 2026-05-12 (Session-inspired UI/UX overhaul + templates + page-tit
 
 ## Tier B — useful, build after Tier A
 
-- [ ] **Edit task mid-session** — click the task text to rename in place
-- [ ] **"Resume last session"** button on idle screen — prefills last project + task
 - [ ] **"Allow overtime" toggle** in Settings (default on, off = strict 25m)
 - [ ] **Tags** — multi-label per session beyond project (e.g. `deep`, `admin`, `meeting`, `learning`)
 - [ ] **Distraction tap counter** — single button during focus to log "got distracted"; visible in session detail

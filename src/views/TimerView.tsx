@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pause, Play, Plus, SkipForward, X, Coffee, Moon } from 'lucide-react'
+import { Pause, Play, Plus, Minus, SkipForward, X, Coffee, Moon, RotateCcw, Pencil } from 'lucide-react'
 import { useTimer, planFromSettings } from '../store/timer'
 import { useSettings } from '../hooks/useSettings'
 import { useTimerTick } from '../hooks/useTimerTick'
@@ -36,12 +36,15 @@ export function TimerView() {
   const skip = useTimer(s => s.skip)
   const abort = useTimer(s => s.abort)
   const extend = useTimer(s => s.extend)
+  const adjustPhase = useTimer(s => s.adjustPhase)
+  const setPlanTask = useTimer(s => s.setTask)
   const workCount = useTimer(s => s.workCount)
   const startStandaloneBreak = useTimer(s => s.startStandaloneBreak)
   const phaseElapsedSec = useTimer(s => s.phaseElapsedSec)
   const phaseStartedAt = useTimer(s => s.phaseStartedAt)
   const phaseDurationSec = useTimer(s => s.phaseDurationSec)
   const planProjectId = useTimer(s => s.plan?.projectId ?? null)
+  const planTask = useTimer(s => s.plan?.task ?? '')
   const setPlanProject = useTimer(s => s.setProject)
   const storedProjectId = useTimer(s => s.selectedProjectId)
   const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
@@ -65,6 +68,7 @@ export function TimerView() {
     [],
   )
   const recentChips = useMemo(() => recentTasks(recent ?? [], 3), [recent])
+  const lastSession = useMemo(() => (recent ?? [])[0] ?? null, [recent])
 
   const templates = useLiveQuery(() => db.templates.orderBy('createdAt').toArray(), [], [])
 
@@ -174,6 +178,29 @@ export function TimerView() {
               <DurationStepper label="Focus" value={workMinVal} onChange={setWorkMin} min={5} max={120} step={5} />
             </div>
 
+            {lastSession && active.some(p => p.id === lastSession.projectId) && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProjectId(lastSession.projectId)
+                    setTask(lastSession.task && lastSession.task !== 'Focus session' ? lastSession.task : '')
+                    const mins = Math.max(1, Math.round(lastSession.plannedSeconds / 60))
+                    setWorkMin(mins)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-ink-200 dark:border-ink-800 px-3 py-1.5 text-[11px] text-ink-500 hover:text-ink-800 dark:hover:text-ink-100 hover:border-accent/40 transition"
+                  title="Prefill the last session"
+                >
+                  <RotateCcw size={12} />
+                  Resume last
+                  <span className="text-ink-400">·</span>
+                  <span className="truncate max-w-[14rem]">{lastSession.task || 'Focus session'}</span>
+                  <span className="text-ink-400">·</span>
+                  <span className="tabular">{Math.max(1, Math.round(lastSession.plannedSeconds / 60))}m</span>
+                </button>
+              </div>
+            )}
+
             <div className="flex justify-center">
               <Button size="lg" className="w-full max-w-sm" onClick={onStart} disabled={!projectId || active.length === 0}>
                 {useRitualVal ? 'Begin Ritual' : 'Start Focus'}
@@ -246,7 +273,7 @@ export function TimerView() {
     ? `Time for a ${phase === 'longBreak' ? 'long' : 'short'} break`
     : isBreakPhase
       ? `On a ${phase === 'longBreak' ? 'long' : 'short'} break`
-      : (useTimer.getState().plan?.task || (phase === 'work' ? 'Focus session' : phase === 'breathing' ? 'Breathe' : phase === 'meditation' ? 'Sit' : ''))
+      : (planTask || (phase === 'work' ? 'Focus session' : phase === 'breathing' ? 'Breathe' : phase === 'meditation' ? 'Sit' : ''))
 
   return (
     <div className="mx-auto w-full max-w-2xl min-h-screen p-4 sm:p-8 flex flex-col items-center justify-center text-center gap-8 relative">
@@ -264,9 +291,17 @@ export function TimerView() {
             />
           </div>
         )}
-        <div className="font-display text-2xl sm:text-3xl text-ink-900 dark:text-ink-50 px-6 max-w-xl mx-auto leading-tight">
-          {intentionText}
-        </div>
+        {phase === 'work' ? (
+          <EditableIntention
+            value={planTask}
+            placeholder="Focus session"
+            onChange={setPlanTask}
+          />
+        ) : (
+          <div className="font-display text-2xl sm:text-3xl text-ink-900 dark:text-ink-50 px-6 max-w-xl mx-auto leading-tight">
+            {intentionText}
+          </div>
+        )}
       </div>
 
       <div key={`ring-${phase}`} className="animate-[ringIn_400ms_ease-out]">
@@ -292,7 +327,27 @@ export function TimerView() {
           <Button variant="primary" size="lg" onClick={resume}><Play size={18} /> Resume</Button>
         )}
         {canExtend && !queuedBreak && (
-          <Button variant="ghost" size="lg" onClick={() => extend(5 * 60)}><Plus size={18} /> 5 min</Button>
+          <div className="inline-flex items-center rounded-full border border-ink-200 dark:border-ink-800 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => adjustPhase(-5 * 60)}
+              className="h-12 px-3 inline-flex items-center gap-1 text-sm text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition"
+              aria-label="Subtract 5 minutes"
+              title="Subtract 5 minutes"
+            >
+              <Minus size={16} /> 5
+            </button>
+            <span className="h-6 w-px bg-ink-200 dark:bg-ink-800" />
+            <button
+              type="button"
+              onClick={() => extend(5 * 60)}
+              className="h-12 px-3 inline-flex items-center gap-1 text-sm text-ink-700 dark:text-ink-200 hover:bg-ink-100 dark:hover:bg-ink-800 transition"
+              aria-label="Add 5 minutes"
+              title="Add 5 minutes"
+            >
+              <Plus size={16} /> 5 min
+            </button>
+          </div>
         )}
         <Button variant="ghost" size="lg" onClick={skip}><SkipForward size={18} /> {queuedBreak ? 'Skip Break' : 'Skip'}</Button>
         <Button variant="ghost" size="lg" onClick={abort}><X size={18} /> End</Button>
@@ -301,7 +356,7 @@ export function TimerView() {
       {phase !== 'breathing' && (
         <div className="hidden sm:flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-ink-400">
           <span><Kbd>Space</Kbd> {queuedBreak ? 'start' : isRunning ? 'pause' : 'resume'}</span>
-          {canExtend && !queuedBreak && <span><Kbd>E</Kbd> +5 min</span>}
+          {canExtend && !queuedBreak && <span><Kbd>E</Kbd> +5 · <Kbd>⇧E</Kbd> −5</span>}
           <span><Kbd>S</Kbd> skip</span>
           <span><Kbd>Esc</Kbd> end</span>
         </div>
@@ -353,6 +408,61 @@ function ProjectPicker({ projects, value, onChange }: { projects: Project[]; val
         </select>
       </div>
     </div>
+  )
+}
+
+function EditableIntention({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(value)
+  const inputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus()
+      inputRef.current?.select()
+    }
+  }, [editing])
+
+  const commit = () => {
+    const next = draft.trim()
+    onChange(next)
+    setEditing(false)
+  }
+  const cancel = () => {
+    setDraft(value)
+    setEditing(false)
+  }
+
+  if (editing) {
+    return (
+      <div className="px-6 max-w-xl mx-auto">
+        <input
+          ref={inputRef}
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); commit() }
+            else if (e.key === 'Escape') { e.preventDefault(); cancel() }
+          }}
+          placeholder={placeholder}
+          className="w-full bg-transparent border-0 border-b border-accent focus:ring-0 outline-none font-display text-2xl sm:text-3xl text-center text-ink-900 dark:text-ink-50 placeholder:italic placeholder:text-ink-300 dark:placeholder:text-ink-700 py-1 px-2"
+        />
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="group inline-flex items-center justify-center gap-2 font-display text-2xl sm:text-3xl text-ink-900 dark:text-ink-50 px-6 max-w-xl mx-auto leading-tight hover:text-accent transition-colors"
+      title="Edit task"
+    >
+      <span>{value || placeholder}</span>
+      <Pencil size={14} className="opacity-0 group-hover:opacity-60 transition-opacity text-ink-500" />
+    </button>
   )
 }
 
