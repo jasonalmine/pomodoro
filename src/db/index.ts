@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie'
-import type { Pomodoro, Project, Settings, Template } from '../types'
+import type { Pomodoro, Project, Settings, Task, Template } from '../types'
 
 class PomodoroDB extends Dexie {
   projects!: Table<Project, string>
   pomodoros!: Table<Pomodoro, string>
   settings!: Table<Settings, string>
   templates!: Table<Template, string>
+  tasks!: Table<Task, string>
 
   constructor() {
     super('pomodoro')
@@ -51,6 +52,14 @@ class PomodoroDB extends Dexie {
         await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
           if (!s.palette) s.palette = 'ember'
         })
+      })
+    this.version(5)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+        templates: 'id, name, createdAt, updatedAt',
+        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
       })
   }
 }

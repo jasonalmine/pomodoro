@@ -197,6 +197,16 @@ export function yearlyHeatmap(poms: Pomodoro[], now = new Date()): Array<{ date:
   })
 }
 
+// Count of Pomodoros logged against each taskId (any completion state).
+export function pomodorosByTask(poms: Pomodoro[]): Map<string, number> {
+  const m = new Map<string, number>()
+  for (const p of poms) {
+    if (!p.taskId) continue
+    m.set(p.taskId, (m.get(p.taskId) ?? 0) + 1)
+  }
+  return m
+}
+
 // Most-recent distinct task strings from completed Pomodoros, newest first.
 export function recentTasks(poms: Pomodoro[], limit = 3): string[] {
   const seen = new Set<string>()

@@ -16,8 +16,8 @@ import { BreathingCircle } from '../components/BreathingCircle'
 import { ProjectChip } from '../components/ProjectChip'
 import { DurationStepper } from '../components/DurationStepper'
 import { fmtDuration } from '../lib/format'
-import { todayBounds, totalsInWindow, recentTasks } from '../lib/stats'
-import type { Project, Template } from '../types'
+import { todayBounds, totalsInWindow, recentTasks, pomodorosByTask } from '../lib/stats'
+import type { Project, Task, Template } from '../types'
 import { Bookmark } from 'lucide-react'
 
 export function TimerView() {
@@ -48,6 +48,8 @@ export function TimerView() {
   const setPlanProject = useTimer(s => s.setProject)
   const storedProjectId = useTimer(s => s.selectedProjectId)
   const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
+  const storedTaskId = useTimer(s => s.selectedTaskId)
+  const setStoredTaskId = useTimer(s => s.setSelectedTaskId)
 
   const [mode, setMode] = useState<'focus' | 'short' | 'long'>('focus')
 
@@ -71,6 +73,9 @@ export function TimerView() {
   const lastSession = useMemo(() => (recent ?? [])[0] ?? null, [recent])
 
   const templates = useLiveQuery(() => db.templates.orderBy('createdAt').toArray(), [], [])
+  const allTasks = useLiveQuery(() => db.tasks.toArray(), [], [])
+  const allPoms = useLiveQuery(() => db.pomodoros.toArray(), [], [])
+  const taskCounts = useMemo(() => pomodorosByTask(allPoms ?? []), [allPoms])
 
   const applyTemplate = (t: Template) => {
     setWorkMin(t.workMinutes)
@@ -119,6 +124,51 @@ export function TimerView() {
 
   const activeProject = (allProjects ?? []).find(p => p.id === (planProjectId ?? projectId)) ?? null
 
+  const projectOpenTasks = useMemo(() => {
+    return (allTasks ?? [])
+      .filter(t => t.projectId === projectId && !t.completed && !t.archivedAt)
+      .sort((a, b) => a.order - b.order)
+  }, [allTasks, projectId])
+
+  // Clear stored task if it's been completed/deleted or belongs to another project.
+  useEffect(() => {
+    if (!storedTaskId) return
+    const t = (allTasks ?? []).find(x => x.id === storedTaskId)
+    if (!t || t.completed || t.archivedAt || t.projectId !== projectId) {
+      setStoredTaskId(null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allTasks, projectId, storedTaskId])
+
+  const selectedTask = (allTasks ?? []).find(t => t.id === storedTaskId) ?? null
+
+  // Estimated remaining time across open tasks for this project.
+  const finishEstimate = useMemo(() => {
+    if (projectOpenTasks.length === 0) return null
+    let remainingPoms = 0
+    for (const t of projectOpenTasks) {
+      const done = taskCounts.get(t.id) ?? 0
+      remainingPoms += Math.max(0, t.estPomodoros - done)
+    }
+    if (remainingPoms === 0) return null
+    const minutes = remainingPoms * workMinVal
+    const finishAt = new Date(Date.now() + minutes * 60 * 1000)
+    return { remainingPoms, minutes, finishAt }
+  }, [projectOpenTasks, taskCounts, workMinVal])
+
+  // Pick / unpick a task. Picking prefills the task input; unpicking clears the input only
+  // if it matches the task name (avoid stomping a user-typed string).
+  const pickTask = (t: Task | null) => {
+    if (t) {
+      setStoredTaskId(t.id)
+      setTask(t.name)
+    } else {
+      const prev = selectedTask
+      setStoredTaskId(null)
+      if (prev && task === prev.name) setTask('')
+    }
+  }
+
   const onStart = async () => {
     if (!projectId) return
     if (settings.notifications) await requestNotificationPermission()
@@ -128,6 +178,7 @@ export function TimerView() {
       { workMinutes: workMinVal, shortBreakMinutes: shortMinVal, longBreakMinutes: longMinVal, useRitual: useRitualVal },
       projectId,
       task.trim(),
+      storedTaskId,
     )
     prepare(plan)
     start()
@@ -151,13 +202,50 @@ export function TimerView() {
                 <div className="text-[11px] font-medium uppercase tracking-[0.22em] text-ink-400">What's the focus?</div>
                 <input
                   value={task}
-                  onChange={e => setTask(e.target.value)}
+                  onChange={e => {
+                    setTask(e.target.value)
+                    if (selectedTask && e.target.value !== selectedTask.name) setStoredTaskId(null)
+                  }}
                   placeholder="Say what matters"
                   autoFocus
                   onKeyDown={e => { if (e.key === 'Enter' && projectId) void onStart() }}
                   className="w-full bg-transparent border-0 border-b border-ink-200 dark:border-ink-800 focus:border-accent focus:ring-0 outline-none font-display text-3xl sm:text-5xl text-center text-ink-900 dark:text-ink-50 placeholder:italic placeholder:text-ink-300 dark:placeholder:text-ink-700 py-3 px-2 transition-colors"
                 />
               </div>
+
+              {projectOpenTasks.length > 0 && (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {projectOpenTasks.slice(0, 8).map(t => {
+                      const done = taskCounts.get(t.id) ?? 0
+                      const isSelected = storedTaskId === t.id
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => pickTask(isSelected ? null : t)}
+                          className={
+                            'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition ' +
+                            (isSelected
+                              ? 'border-accent text-accent bg-accent/5'
+                              : 'border-ink-200 dark:border-ink-800 text-ink-600 dark:text-ink-300 hover:border-accent/40 hover:text-ink-900 dark:hover:text-ink-50')
+                          }
+                          title={`${done} of ${t.estPomodoros} Pomodoros logged`}
+                        >
+                          <span className="truncate max-w-[12rem]">{t.name}</span>
+                          <span className="text-[10px] tabular text-ink-400">{done}/{t.estPomodoros}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {finishEstimate && (
+                    <p className="text-center text-[11px] text-ink-400 tabular">
+                      ≈ {finishEstimate.remainingPoms} Pomodoro{finishEstimate.remainingPoms === 1 ? '' : 's'} left ·
+                      {' '}finishes ~{finishEstimate.finishAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </p>
+                  )}
+                </div>
+              )}
               {recentChips.length > 0 && (
                 <div className="flex flex-wrap justify-center gap-2 pt-1">
                   {recentChips.map((t, i) => (
@@ -578,8 +666,21 @@ function ReflectionPanel() {
   const pom = useLiveQuery(async () => (lastId ? await db.pomodoros.get(lastId) : undefined), [lastId])
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const project = pom ? (projects ?? []).find(p => p.id === pom.projectId) : null
+  const linkedTask = useLiveQuery(
+    async () => (pom?.taskId ? await db.tasks.get(pom.taskId) : undefined),
+    [pom?.taskId],
+  )
+  const linkedTaskCount = useLiveQuery(
+    async () => (pom?.taskId ? await db.pomodoros.where('taskId').equals(pom.taskId).count() : 0),
+    [pom?.taskId],
+  ) ?? 0
 
   const hasAny = done.trim() || next.trim() || note.trim()
+
+  const markTaskDone = async () => {
+    if (!linkedTask || linkedTask.completed) return
+    await db.tasks.update(linkedTask.id, { completed: true, completedAt: Date.now(), updatedAt: Date.now() })
+  }
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 sm:px-6 pt-10 sm:pt-16 pb-12 space-y-8">
@@ -594,6 +695,21 @@ function ReflectionPanel() {
           {project && <div className="flex justify-center"><ProjectChip project={project} /></div>}
           <div className="text-base text-ink-800 dark:text-ink-100 mt-2">{pom.task || 'Focus session'}</div>
           <div className="text-xs text-ink-500 tabular">{fmtDuration(pom.actualSeconds)} focused</div>
+          {linkedTask && (
+            <div className="pt-2 flex items-center justify-center gap-2 text-xs text-ink-500">
+              <span className="tabular">{linkedTaskCount}/{linkedTask.estPomodoros}🍅</span>
+              {!linkedTask.completed && (
+                <button
+                  type="button"
+                  onClick={() => void markTaskDone()}
+                  className="text-accent hover:underline"
+                >
+                  Mark task done
+                </button>
+              )}
+              {linkedTask.completed && <span className="text-accent">✓ Done</span>}
+            </div>
+          )}
         </div>
       )}
 

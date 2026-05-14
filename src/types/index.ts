@@ -73,6 +73,7 @@ export type Project = {
 export type Pomodoro = {
   id: string
   projectId: string
+  taskId?: string
   task: string
   startedAt: number
   endedAt: number
@@ -83,6 +84,19 @@ export type Pomodoro = {
   noteDone?: string
   noteNext?: string
   ritualUsed: boolean
+  updatedAt: number
+}
+
+export type Task = {
+  id: string
+  projectId: string
+  name: string
+  estPomodoros: number
+  completed: boolean
+  completedAt?: number
+  archivedAt?: number
+  order: number
+  createdAt: number
   updatedAt: number
 }
 

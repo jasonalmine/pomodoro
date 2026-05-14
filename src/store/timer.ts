@@ -5,6 +5,7 @@ import { chime } from '../audio/engine'
 
 type SessionPlan = {
   projectId: string
+  taskId: string | null
   task: string
   workSeconds: number
   shortBreakSeconds: number
@@ -42,6 +43,8 @@ type TimerState = {
   isOverflow: boolean
   selectedProjectId: string | null
   setSelectedProjectId: (id: string) => void
+  selectedTaskId: string | null
+  setSelectedTaskId: (id: string | null) => void
 
   prepare: (plan: SessionPlan) => void
   start: () => void
@@ -56,6 +59,7 @@ type TimerState = {
   startStandaloneBreak: (type: 'short' | 'long', minutes: number) => void
   setProject: (projectId: string) => void
   setTask: (task: string) => void
+  setPlanTaskId: (id: string | null) => void
   adjustPhase: (seconds: number) => void
 }
 
@@ -67,6 +71,17 @@ function loadSelectedProjectId(): string | null {
 }
 function persistSelectedProjectId(id: string) {
   try { localStorage.setItem(SELECTED_PROJECT_KEY, id) } catch { /* ignore */ }
+}
+
+const SELECTED_TASK_KEY = 'pomodoro.selectedTaskId'
+function loadSelectedTaskId(): string | null {
+  try { return localStorage.getItem(SELECTED_TASK_KEY) } catch { return null }
+}
+function persistSelectedTaskId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(SELECTED_TASK_KEY, id)
+    else localStorage.removeItem(SELECTED_TASK_KEY)
+  } catch { /* ignore */ }
 }
 
 function patternStages(patternId: string): Array<[BreathStage, number]> {
@@ -106,6 +121,11 @@ export const useTimer = create<TimerState>((set, get) => ({
   setSelectedProjectId: (id) => {
     persistSelectedProjectId(id)
     set({ selectedProjectId: id })
+  },
+  selectedTaskId: loadSelectedTaskId(),
+  setSelectedTaskId: (id) => {
+    persistSelectedTaskId(id)
+    set({ selectedTaskId: id })
   },
 
   prepare: (plan) => {
@@ -271,6 +291,12 @@ export const useTimer = create<TimerState>((set, get) => ({
     set({ plan: { ...s.plan, task } })
   },
 
+  setPlanTaskId: (id) => {
+    const s = get()
+    if (!s.plan) return
+    set({ plan: { ...s.plan, taskId: id } })
+  },
+
   adjustPhase: (seconds) => {
     const s = get()
     if (s.phase !== 'work' && s.phase !== 'shortBreak' && s.phase !== 'longBreak') return
@@ -413,6 +439,7 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
   const pomodoro: Pomodoro = {
     id: crypto.randomUUID(),
     projectId: plan.projectId,
+    taskId: plan.taskId ?? undefined,
     task: plan.task || 'Focus session',
     startedAt,
     endedAt,
@@ -460,6 +487,7 @@ async function endWorkIntoBreak(
   const pomodoro: Pomodoro = {
     id: crypto.randomUUID(),
     projectId: plan.projectId,
+    taskId: plan.taskId ?? undefined,
     task: plan.task || 'Focus session',
     startedAt,
     endedAt,
@@ -571,12 +599,14 @@ export function planFromSettings(
   override: Partial<{ workMinutes: number; shortBreakMinutes: number; longBreakMinutes: number; useRitual: boolean }>,
   projectId: string,
   task: string,
+  taskId: string | null = null,
 ): SessionPlan {
   const workMinutes = override.workMinutes ?? defaults.workMinutes
   const shortBreakMinutes = override.shortBreakMinutes ?? defaults.shortBreakMinutes
   const longBreakMinutes = override.longBreakMinutes ?? defaults.longBreakMinutes
   return {
     projectId,
+    taskId,
     task,
     workSeconds: Math.round(workMinutes * 60),
     shortBreakSeconds: Math.round(shortBreakMinutes * 60),

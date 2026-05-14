@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-14 (Idle duration steppers, mid-session project + task switcher, ±5 min adjust, resume-last, persisted project selection)
+Last updated: 2026-05-14 (Tasks under projects + estimated Pomodoros + finish-time hint; Dexie v5)
 
 ---
 
@@ -39,6 +39,10 @@ Last updated: 2026-05-14 (Idle duration steppers, mid-session project + task swi
 - [x] Edit task mid-session (click intention text to rename in place)
 - [x] ±5 min during active phase (shorten or extend), `Shift+E` shortcut for −5
 - [x] Resume last session card on idle (prefills project + task + duration)
+- [x] Tasks under projects (Dexie v5): inline list per project with add / edit / check / delete, estimated Pomodoros, derived progress, archive-on-complete check
+- [x] Idle task picker: tap a task to load it as the focus; finish-time estimate from remaining Pomodoros
+- [x] Reflection panel surfaces task progress + "Mark task done" CTA when the session was linked to one
+- [x] JSON export/import includes tasks
 
 ## QA gaps to verify
 
@@ -47,6 +51,12 @@ Last updated: 2026-05-14 (Idle duration steppers, mid-session project + task swi
 - [ ] iOS Safari "Add to Home Screen" PWA flow — audio, wake lock, notifications
 - [ ] Multiple-tab behavior — what happens if app is open in two tabs and timer running in one?
 - [ ] Daylight savings boundary — does a session that crosses 2am→3am break the calendar?
+
+## Open follow-ups for tasks
+- [ ] Cloud sync (Supabase): currently tasks are local-only
+- [ ] Mid-session task switcher in active screen (today only the project chip is interactive)
+- [ ] Per-task drill-in / detail view
+- [ ] Drag-reorder tasks (currently `order` is set to createdAt; no UI to change)
 
 ## Tier B — useful, build after Tier A
 
