@@ -4,7 +4,7 @@
 import type { User } from '@supabase/supabase-js'
 import { db } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
-import type { Pomodoro, Project, Task, Template } from '../types'
+import type { DayShutdown, Pomodoro, Project, Task, Template } from '../types'
 
 const LAST_SYNC_KEY = 'pomodoro:lastSyncedAt'
 
@@ -60,6 +60,19 @@ type TemplateRow = {
   short_break_minutes: number
   long_break_minutes: number
   use_ritual: boolean
+  created_at: number
+  updated_at: number
+}
+
+type DayShutdownRow = {
+  id: string
+  user_id: string
+  date: number
+  wins: string | null
+  blockers: string | null
+  tomorrow_project_id: string | null
+  tomorrow_task: string | null
+  tomorrow_minutes: number | null
   created_at: number
   updated_at: number
 }
@@ -188,6 +201,35 @@ function rowToTemplate(r: TemplateRow): Template {
   }
 }
 
+function dayShutdownToRow(d: DayShutdown, userId: string): DayShutdownRow {
+  return {
+    id: d.id,
+    user_id: userId,
+    date: d.date,
+    wins: d.wins ?? null,
+    blockers: d.blockers ?? null,
+    tomorrow_project_id: d.tomorrowProjectId ?? null,
+    tomorrow_task: d.tomorrowTask ?? null,
+    tomorrow_minutes: d.tomorrowMinutes ?? null,
+    created_at: d.createdAt,
+    updated_at: d.updatedAt,
+  }
+}
+
+function rowToDayShutdown(r: DayShutdownRow): DayShutdown {
+  return {
+    id: r.id,
+    date: r.date,
+    wins: r.wins ?? undefined,
+    blockers: r.blockers ?? undefined,
+    tomorrowProjectId: r.tomorrow_project_id ?? undefined,
+    tomorrowTask: r.tomorrow_task ?? undefined,
+    tomorrowMinutes: r.tomorrow_minutes ?? undefined,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
 export type SyncStatus = 'idle' | 'syncing' | 'error'
 
 let syncing = false
@@ -233,11 +275,12 @@ export async function signOut(): Promise<void> {
 
 async function pushDirty(userId: string, since: number): Promise<void> {
   if (!supabase) return
-  const [projects, pomodoros, tasks, templates] = await Promise.all([
+  const [projects, pomodoros, tasks, templates, shutdowns] = await Promise.all([
     db.projects.where('updatedAt').above(since).toArray(),
     db.pomodoros.where('updatedAt').above(since).toArray(),
     db.tasks.where('updatedAt').above(since).toArray(),
     db.templates.where('updatedAt').above(since).toArray(),
+    db.dayShutdowns.where('updatedAt').above(since).toArray(),
   ])
 
   if (projects.length) {
@@ -263,22 +306,30 @@ async function pushDirty(userId: string, since: number): Promise<void> {
     const { error } = await supabase.from('templates').upsert(rows, { onConflict: 'id' })
     if (error) throw error
   }
+
+  if (shutdowns.length) {
+    const rows = shutdowns.map(d => dayShutdownToRow(d, userId))
+    const { error } = await supabase.from('day_shutdowns').upsert(rows, { onConflict: 'id' })
+    if (error) throw error
+  }
 }
 
 async function pullSince(userId: string, since: number): Promise<number> {
   if (!supabase) return since
 
-  const [projRes, pomRes, taskRes, tmplRes] = await Promise.all([
+  const [projRes, pomRes, taskRes, tmplRes, shutRes] = await Promise.all([
     supabase.from('projects').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('pomodoros').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('tasks').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('templates').select('*').eq('user_id', userId).gt('updated_at', since),
+    supabase.from('day_shutdowns').select('*').eq('user_id', userId).gt('updated_at', since),
   ])
 
   if (projRes.error) throw projRes.error
   if (pomRes.error) throw pomRes.error
   if (taskRes.error) throw taskRes.error
   if (tmplRes.error) throw tmplRes.error
+  if (shutRes.error) throw shutRes.error
 
   let maxUpdated = since
 
@@ -336,6 +387,20 @@ async function pullSince(userId: string, since: number): Promise<number> {
       if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
     })
     if (toPut.length) await db.templates.bulkPut(toPut)
+  }
+
+  const shutRows = (shutRes.data ?? []) as DayShutdownRow[]
+  if (shutRows.length) {
+    const local = await db.dayShutdowns.bulkGet(shutRows.map(r => r.id))
+    const toPut: DayShutdown[] = []
+    shutRows.forEach((r, i) => {
+      const existing = local[i]
+      if (!existing || existing.updatedAt < r.updated_at) {
+        toPut.push(rowToDayShutdown(r))
+      }
+      if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
+    })
+    if (toPut.length) await db.dayShutdowns.bulkPut(toPut)
   }
 
   return maxUpdated

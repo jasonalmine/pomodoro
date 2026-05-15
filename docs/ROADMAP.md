@@ -43,6 +43,7 @@ Last updated: 2026-05-14 (Tasks under projects + estimated Pomodoros + finish-ti
 - [x] Idle task picker: tap a task to load it as the focus; finish-time estimate from remaining Pomodoros
 - [x] Reflection panel surfaces task progress + "Mark task done" CTA when the session was linked to one
 - [x] JSON export/import includes tasks
+- [x] Day-shutdown ritual: end-of-day reflection (wins / blockers / tomorrow's first Pomodoro). Surfaces on idle next morning as "Yesterday's plan" prefill. Syncs via Supabase.
 
 ## QA gaps to verify
 

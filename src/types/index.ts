@@ -100,6 +100,19 @@ export type Task = {
   updatedAt: number
 }
 
+// One per local calendar day. `id` is the date key (yyyy-MM-dd).
+export type DayShutdown = {
+  id: string
+  date: number          // start-of-day epoch ms
+  wins?: string
+  blockers?: string
+  tomorrowProjectId?: string
+  tomorrowTask?: string
+  tomorrowMinutes?: number
+  createdAt: number
+  updatedAt: number
+}
+
 export type Template = {
   id: string
   name: string

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Pause, Play, Plus, Minus, SkipForward, X, Coffee, Moon, RotateCcw, Pencil } from 'lucide-react'
+import { format, subDays } from 'date-fns'
+import { Pause, Play, Plus, Minus, SkipForward, X, Coffee, Moon, RotateCcw, Pencil, Sunrise } from 'lucide-react'
 import { useTimer, planFromSettings } from '../store/timer'
 import { useSettings } from '../hooks/useSettings'
 import { useTimerTick } from '../hooks/useTimerTick'
@@ -76,6 +77,9 @@ export function TimerView() {
   const allTasks = useLiveQuery(() => db.tasks.toArray(), [], [])
   const allPoms = useLiveQuery(() => db.pomodoros.toArray(), [], [])
   const taskCounts = useMemo(() => pomodorosByTask(allPoms ?? []), [allPoms])
+
+  const yesterdayKey = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+  const yesterdayShutdown = useLiveQuery(() => db.dayShutdowns.get(yesterdayKey), [yesterdayKey])
 
   const applyTemplate = (t: Template) => {
     setWorkMin(t.workMinutes)
@@ -265,6 +269,32 @@ export function TimerView() {
             <div className="flex justify-center">
               <DurationStepper label="Focus" value={workMinVal} onChange={setWorkMin} min={5} max={120} step={5} />
             </div>
+
+            {yesterdayShutdown?.tomorrowTask && active.some(p => p.id === yesterdayShutdown.tomorrowProjectId) && (
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (yesterdayShutdown.tomorrowProjectId) setProjectId(yesterdayShutdown.tomorrowProjectId)
+                    if (yesterdayShutdown.tomorrowTask) setTask(yesterdayShutdown.tomorrowTask)
+                    if (yesterdayShutdown.tomorrowMinutes) setWorkMin(yesterdayShutdown.tomorrowMinutes)
+                  }}
+                  className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/5 px-3 py-1.5 text-[11px] text-accent hover:bg-accent/10 transition"
+                  title="Yesterday's plan for today's first Pomodoro"
+                >
+                  <Sunrise size={12} />
+                  Yesterday's plan
+                  <span className="text-accent/60">·</span>
+                  <span className="truncate max-w-[14rem] text-ink-700 dark:text-ink-200">{yesterdayShutdown.tomorrowTask}</span>
+                  {yesterdayShutdown.tomorrowMinutes != null && (
+                    <>
+                      <span className="text-accent/60">·</span>
+                      <span className="tabular text-ink-700 dark:text-ink-200">{yesterdayShutdown.tomorrowMinutes}m</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {lastSession && active.some(p => p.id === lastSession.projectId) && (
               <div className="flex justify-center">

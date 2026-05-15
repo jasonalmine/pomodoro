@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { eachDayOfInterval, format, subDays } from 'date-fns'
+import { Moon } from 'lucide-react'
 import { db } from '../db'
 import { fmtDuration } from '../lib/format'
 import {
@@ -19,6 +20,8 @@ import { ProjectBars } from '../components/ProjectBars'
 import { DailyTimeline } from '../components/DailyTimeline'
 import { WeeklyStacks } from '../components/WeeklyStacks'
 import { YearHeatmap } from '../components/YearHeatmap'
+import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
+import { Button } from '../components/Button'
 
 type ViewMode = 'today' | 'week' | 'lifetime' | 'year'
 
@@ -54,7 +57,14 @@ export function InsightsView() {
   const lifetimeProjectTotals = useMemo(() => projectTotals(poms, projs), [poms, projs])
 
   const [view, setView] = useState<ViewMode>('today')
+  const [shutdownOpen, setShutdownOpen] = useState(false)
   const goal = settings.dailyGoalPomodoros
+
+  const todayShutdown = useLiveQuery(() => db.dayShutdowns.get(todayShutdownId(now)), [now.toDateString()])
+  const tomorrowProject = useMemo(() => {
+    if (!todayShutdown?.tomorrowProjectId) return null
+    return projs.find(p => p.id === todayShutdown.tomorrowProjectId) ?? null
+  }, [todayShutdown, projs])
 
   return (
     <div className="mx-auto w-full max-w-3xl p-4 sm:p-6 space-y-6">
@@ -119,6 +129,48 @@ export function InsightsView() {
 
           <ProjectsSection totals={last30} title="By project" subtitle="Last 30 days" />
           <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
+
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+            <div className="flex items-start gap-3">
+              <Moon size={18} className="text-accent mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">End the day</h2>
+                <p className="text-xs text-ink-500 mt-0.5">
+                  A short reflection: wins, blockers, and tomorrow's first Pomodoro. It'll greet you on the idle screen in the morning.
+                </p>
+                {todayShutdown && (
+                  <div className="mt-3 space-y-1.5 text-xs">
+                    {todayShutdown.wins && (
+                      <div><span className="font-medium text-ink-700 dark:text-ink-200">Wins:</span> <span className="text-ink-500">{todayShutdown.wins}</span></div>
+                    )}
+                    {todayShutdown.blockers && (
+                      <div><span className="font-medium text-ink-700 dark:text-ink-200">Blockers:</span> <span className="text-ink-500">{todayShutdown.blockers}</span></div>
+                    )}
+                    {(todayShutdown.tomorrowTask || tomorrowProject) && (
+                      <div>
+                        <span className="font-medium text-ink-700 dark:text-ink-200">Tomorrow:</span>{' '}
+                        {tomorrowProject && (
+                          <span className="inline-flex items-center gap-1 text-ink-500">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tomorrowProject.color }} />
+                            {tomorrowProject.name}
+                          </span>
+                        )}
+                        {todayShutdown.tomorrowTask && (
+                          <span className="text-ink-500"> · {todayShutdown.tomorrowTask}</span>
+                        )}
+                        {todayShutdown.tomorrowMinutes != null && (
+                          <span className="text-ink-400 tabular"> · {todayShutdown.tomorrowMinutes}m</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <Button size="sm" variant={todayShutdown ? 'secondary' : 'primary'} onClick={() => setShutdownOpen(true)}>
+                {todayShutdown ? 'Edit' : 'Wrap up'}
+              </Button>
+            </div>
+          </section>
         </>
       )}
 
@@ -188,6 +240,8 @@ export function InsightsView() {
           <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
         </>
       )}
+
+      {shutdownOpen && <DayShutdownPanel onClose={() => setShutdownOpen(false)} now={now} />}
     </div>
   )
 }

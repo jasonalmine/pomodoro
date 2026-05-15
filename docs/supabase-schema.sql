@@ -106,3 +106,26 @@ create policy if not exists "Users manage their own templates" on templates
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists templates_user_updated on templates (user_id, updated_at);
+
+------------------------------------------------------------
+-- day_shutdowns (one row per local calendar day)
+------------------------------------------------------------
+create table if not exists day_shutdowns (
+  id text primary key,
+  user_id uuid references auth.users not null,
+  date bigint not null,
+  wins text,
+  blockers text,
+  tomorrow_project_id text,
+  tomorrow_task text,
+  tomorrow_minutes int,
+  created_at bigint not null,
+  updated_at bigint not null
+);
+
+alter table day_shutdowns enable row level security;
+
+create policy if not exists "Users manage their own day_shutdowns" on day_shutdowns
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists day_shutdowns_user_updated on day_shutdowns (user_id, updated_at);
