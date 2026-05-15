@@ -87,7 +87,7 @@ export function useFaviconTimer() {
     ranOnceRef.current = true
     const planProjectId = useTimer.getState().plan?.projectId
     const project = (projects ?? []).find(p => p.id === planProjectId)
-    const color = phase === 'work' ? (project?.color ?? '#ff6a37') : '#646473'
+    const color = (phase === 'work' || phase === 'flow') ? (project?.color ?? '#ff6a37') : '#646473'
 
     function render() {
       const s = useTimer.getState()

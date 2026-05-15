@@ -3,6 +3,7 @@ export type Phase =
   | 'breathing'
   | 'meditation'
   | 'work'
+  | 'flow'
   | 'shortBreak'
   | 'longBreak'
   | 'reflect'
@@ -80,6 +81,7 @@ export type Pomodoro = {
   plannedSeconds: number
   actualSeconds: number
   completed: boolean
+  flowMode?: boolean
   note?: string
   noteDone?: string
   noteNext?: string

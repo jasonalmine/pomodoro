@@ -22,7 +22,7 @@ export function useAudioEffects() {
 
   // Switch ambient track only when phase, track id, or mute state changes.
   useEffect(() => {
-    const active = phase === 'work' && settings.audio.ambient !== 'none' && !settings.audio.muted
+    const active = (phase === 'work' || phase === 'flow') && settings.audio.ambient !== 'none' && !settings.audio.muted
     setAmbient(active ? settings.audio.ambient : 'none', settings.audio.ambientVolume)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, settings.audio.ambient, settings.audio.muted])

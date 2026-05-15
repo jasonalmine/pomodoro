@@ -14,6 +14,7 @@ type SessionPlan = {
   ritual: RitualConfig
   autoStartBreaks: boolean
   autoStartWork: boolean
+  flowMode?: boolean
 }
 
 type BreathStage = 'inhale' | 'holdIn' | 'exhale' | 'holdOut'
@@ -57,6 +58,7 @@ type TimerState = {
   saveReflection: (input: string | { note?: string; done?: string; next?: string }) => Promise<void>
   dismissReflection: () => void
   startStandaloneBreak: (type: 'short' | 'long', minutes: number) => void
+  startFlow: (projectId: string, taskId: string | null, task: string, defaults: TimerDefaults) => void
   setProject: (projectId: string) => void
   setTask: (task: string) => void
   setPlanTaskId: (id: string | null) => void
@@ -197,6 +199,12 @@ export const useTimer = create<TimerState>((set, get) => ({
   },
 
   skip: () => {
+    const s = get()
+    // Flow has no natural boundary; "skip" means "wrap up the flow now."
+    if (s.phase === 'flow' && s.plan && !s.isCompleting) {
+      void completeFlow(set, get)
+      return
+    }
     advancePhase(set, get)
   },
 
@@ -208,6 +216,13 @@ export const useTimer = create<TimerState>((set, get) => ({
     if (s.phase === 'work' && s.plan && !s.isCompleting) {
       const plan = s.plan
       void endWorkIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, s.phaseDurationSec, set)
+      return
+    }
+
+    // End a flow session: save the count-up Pomodoro and offer a proportional break.
+    if (s.phase === 'flow' && s.plan && !s.isCompleting) {
+      const plan = s.plan
+      void endFlowIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, set)
       return
     }
 
@@ -246,6 +261,7 @@ export const useTimer = create<TimerState>((set, get) => ({
     const s = get()
     if (!s.isRunning || s.phaseStartedAt == null) return
     if (s.phase === 'work' && s.isCompleting) return
+    if (s.phase === 'flow') return // count-up, never auto-advances
     const elapsed = s.phaseElapsedSec + (nowSec() - s.phaseStartedAt)
     // For metered phases (work / breaks), enter overflow at the boundary instead of advancing.
     // Breathing + meditation keep auto-advancing.
@@ -331,6 +347,37 @@ export const useTimer = create<TimerState>((set, get) => ({
       phaseStartedAt: nowSec(),
       breath: null,
       currentPomodoroStartedAt: null,
+      lastCompletedPomodoroId: null,
+      isCompleting: false,
+      isOverflow: false,
+    })
+  },
+
+  startFlow: (projectId, taskId, task, defaults) => {
+    clearBreathTimer()
+    const plan: SessionPlan = {
+      projectId,
+      taskId,
+      task,
+      workSeconds: 0,
+      shortBreakSeconds: defaults.shortBreakMinutes * 60,
+      longBreakSeconds: defaults.longBreakMinutes * 60,
+      longBreakEvery: defaults.longBreakEvery,
+      ritual: { enabled: false, patternId: 'box', cycles: 0, meditationSeconds: 0, breathCues: false },
+      autoStartBreaks: defaults.autoStartBreaks,
+      autoStartWork: defaults.autoStartWork,
+      flowMode: true,
+    }
+    chime('start')
+    set({
+      plan,
+      phase: 'flow',
+      isRunning: true,
+      phaseDurationSec: 0,
+      phaseElapsedSec: 0,
+      phaseStartedAt: nowSec(),
+      breath: null,
+      currentPomodoroStartedAt: Date.now(),
       lastCompletedPomodoroId: null,
       isCompleting: false,
       isOverflow: false,
@@ -506,6 +553,96 @@ async function endWorkIntoBreak(
     workCount: newWorkCount,
     lastCompletedPomodoroId: pomodoro.id,
     phase: isLong ? 'longBreak' : 'shortBreak',
+    isRunning: true,
+    phaseDurationSec: breakSec,
+    phaseElapsedSec: 0,
+    phaseStartedAt: nowSec(),
+    breath: null,
+    currentPomodoroStartedAt: null,
+    isCompleting: false,
+    isOverflow: false,
+  })
+}
+
+// Flow ended via "skip" / "stop flowing": save the count-up Pomodoro and go to reflect.
+// Mirrors completeWork but uses live-elapsed seconds for plannedSeconds.
+async function completeFlow(set: (p: Partial<TimerState>) => void, get: () => TimerState) {
+  const s = get()
+  const plan = s.plan
+  if (!plan) return
+  set({ isCompleting: true })
+  const startedAt = s.currentPomodoroStartedAt ?? Date.now()
+  const endedAt = Date.now()
+  const elapsed = s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt != null ? nowSec() - s.phaseStartedAt : 0)
+  const actualSeconds = Math.max(1, Math.round(elapsed))
+  const pomodoro: Pomodoro = {
+    id: crypto.randomUUID(),
+    projectId: plan.projectId,
+    taskId: plan.taskId ?? undefined,
+    task: plan.task || 'Flow session',
+    startedAt,
+    endedAt,
+    plannedSeconds: actualSeconds,
+    actualSeconds,
+    completed: true,
+    flowMode: true,
+    ritualUsed: false,
+    updatedAt: endedAt,
+  }
+  await db.pomodoros.put(pomodoro)
+  chime('workEnd')
+  set({
+    workCount: s.workCount + 1,
+    lastCompletedPomodoroId: pomodoro.id,
+    phase: 'reflect',
+    isRunning: false,
+    phaseStartedAt: null,
+    phaseElapsedSec: 0,
+    phaseDurationSec: 0,
+    currentPomodoroStartedAt: null,
+    isCompleting: false,
+    isOverflow: false,
+  })
+}
+
+// Flow ended via "End" button: save and roll straight into a proportional break.
+async function endFlowIntoBreak(
+  plan: SessionPlan,
+  workCount: number,
+  currentPomodoroStartedAt: number | null,
+  isRunning: boolean,
+  phaseStartedAt: number | null,
+  phaseElapsedSec: number,
+  set: (p: Partial<TimerState>) => void,
+) {
+  set({ isCompleting: true })
+  const startedAt = currentPomodoroStartedAt ?? Date.now()
+  const endedAt = Date.now()
+  const elapsed = phaseElapsedSec + (isRunning && phaseStartedAt != null ? nowSec() - phaseStartedAt : 0)
+  const actualSeconds = Math.max(1, Math.round(elapsed))
+  const pomodoro: Pomodoro = {
+    id: crypto.randomUUID(),
+    projectId: plan.projectId,
+    taskId: plan.taskId ?? undefined,
+    task: plan.task || 'Flow session',
+    startedAt,
+    endedAt,
+    plannedSeconds: actualSeconds,
+    actualSeconds,
+    completed: true,
+    flowMode: true,
+    ritualUsed: false,
+    updatedAt: endedAt,
+  }
+  await db.pomodoros.put(pomodoro)
+  chime('workEnd')
+  // Proportional break: 1/5 of the flow time, clamped to [5, 30] minutes.
+  const breakMinutes = Math.max(5, Math.min(30, Math.round(actualSeconds / 60 / 5)))
+  const breakSec = breakMinutes * 60
+  set({
+    workCount: workCount + 1,
+    lastCompletedPomodoroId: pomodoro.id,
+    phase: 'shortBreak',
     isRunning: true,
     phaseDurationSec: breakSec,
     phaseElapsedSec: 0,

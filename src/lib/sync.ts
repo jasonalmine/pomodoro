@@ -30,6 +30,7 @@ type PomodoroRow = {
   planned_seconds: number | null
   actual_seconds: number | null
   completed: boolean | null
+  flow_mode: boolean | null
   note: string | null
   note_done: string | null
   note_next: string | null
@@ -114,6 +115,7 @@ function pomodoroToRow(p: Pomodoro, userId: string): PomodoroRow {
     planned_seconds: p.plannedSeconds,
     actual_seconds: p.actualSeconds,
     completed: p.completed,
+    flow_mode: p.flowMode ?? null,
     note: p.note ?? null,
     note_done: p.noteDone ?? null,
     note_next: p.noteNext ?? null,
@@ -133,6 +135,7 @@ function rowToPomodoro(r: PomodoroRow): Pomodoro {
     plannedSeconds: r.planned_seconds ?? 0,
     actualSeconds: r.actual_seconds ?? 0,
     completed: r.completed ?? false,
+    flowMode: r.flow_mode ?? undefined,
     note: r.note ?? undefined,
     noteDone: r.note_done ?? undefined,
     noteNext: r.note_next ?? undefined,

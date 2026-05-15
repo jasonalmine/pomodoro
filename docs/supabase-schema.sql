@@ -50,6 +50,7 @@ create table if not exists pomodoros (
 alter table pomodoros add column if not exists task_id text;
 alter table pomodoros add column if not exists note_done text;
 alter table pomodoros add column if not exists note_next text;
+alter table pomodoros add column if not exists flow_mode boolean;
 
 alter table pomodoros enable row level security;
 

@@ -8,6 +8,7 @@ const PHASE_LABEL: Record<Phase, string> = {
   breathing: 'Settle In',
   meditation: 'Meditation',
   work: 'Focus',
+  flow: 'Flowing',
   shortBreak: 'Short Break',
   longBreak: 'Long Break',
   reflect: 'Reflect',
@@ -27,6 +28,7 @@ function phaseRingColor(phase: Phase): string {
     case 'longBreak':
       return BREAK_COLOR
     case 'work':
+    case 'flow':
     case 'breathing':
     case 'meditation':
       return accentColor()
@@ -52,11 +54,21 @@ export function RingTimer() {
   const s = useTimer.getState()
   const remaining = remainingSec(s)
   const overflow = overflowSec(s)
-  const progress = phaseDurationSec > 0 ? Math.min(1, Math.max(0, 1 - remaining / phaseDurationSec)) : 0
+  const isFlow = phase === 'flow'
+  const elapsed = isFlow
+    ? s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt != null ? Date.now() / 1000 - s.phaseStartedAt : 0)
+    : 0
+  // Flow gets a slow-sweeping wedge so the ring still has motion without implying a deadline.
+  const flowSweep = isFlow ? ((elapsed % 600) / 600) : 0
+  const progress = isFlow
+    ? flowSweep
+    : (phaseDurationSec > 0 ? Math.min(1, Math.max(0, 1 - remaining / phaseDurationSec)) : 0)
   const offset = C * (1 - progress)
   const color = phaseRingColor(phase)
 
-  const displayTime = isOverflow ? `+${fmtTime(overflow)}` : fmtTime(remaining)
+  const displayTime = isFlow
+    ? fmtTime(Math.round(elapsed))
+    : (isOverflow ? `+${fmtTime(overflow)}` : fmtTime(remaining))
   const label = isOverflow ? `Overtime · ${PHASE_LABEL[phase]}` : PHASE_LABEL[phase]
 
   return (

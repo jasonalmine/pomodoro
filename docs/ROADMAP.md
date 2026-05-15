@@ -44,6 +44,7 @@ Last updated: 2026-05-14 (Tasks under projects + estimated Pomodoros + finish-ti
 - [x] Reflection panel surfaces task progress + "Mark task done" CTA when the session was linked to one
 - [x] JSON export/import includes tasks
 - [x] Day-shutdown ritual: end-of-day reflection (wins / blockers / tomorrow's first Pomodoro). Surfaces on idle next morning as "Yesterday's plan" prefill. Syncs via Supabase.
+- [x] Flowtime / stopwatch mode: count-up sessions with no target. Idle picker adds a Flow tab (4-up). Wrapping up proposes a proportional break (1/5 of focus, clamped 5–30 min). Pomodoros saved with `flowMode: true`.
 
 ## QA gaps to verify
 

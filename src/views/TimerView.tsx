@@ -41,6 +41,7 @@ export function TimerView() {
   const setPlanTask = useTimer(s => s.setTask)
   const workCount = useTimer(s => s.workCount)
   const startStandaloneBreak = useTimer(s => s.startStandaloneBreak)
+  const startFlow = useTimer(s => s.startFlow)
   const phaseElapsedSec = useTimer(s => s.phaseElapsedSec)
   const phaseStartedAt = useTimer(s => s.phaseStartedAt)
   const phaseDurationSec = useTimer(s => s.phaseDurationSec)
@@ -52,7 +53,7 @@ export function TimerView() {
   const storedTaskId = useTimer(s => s.selectedTaskId)
   const setStoredTaskId = useTimer(s => s.setSelectedTaskId)
 
-  const [mode, setMode] = useState<'focus' | 'short' | 'long'>('focus')
+  const [mode, setMode] = useState<IdleMode>('focus')
 
   const allProjects = useLiveQuery(() => db.projects.toArray(), [], [])
   const active = useMemo(() => (allProjects ?? []).filter(p => !p.archived), [allProjects])
@@ -123,7 +124,7 @@ export function TimerView() {
   const useRitualVal = useRitual ?? settings.ritual.enabled
 
   useNotificationRequest(settings.notifications)
-  const wakeActive = isRunning && (phase === 'work' || phase === 'shortBreak' || phase === 'longBreak')
+  const wakeActive = isRunning && (phase === 'work' || phase === 'flow' || phase === 'shortBreak' || phase === 'longBreak')
   useWakeLock(wakeActive, settings.wakeLock)
 
   const activeProject = (allProjects ?? []).find(p => p.id === (planProjectId ?? projectId)) ?? null
@@ -349,6 +350,48 @@ export function TimerView() {
               Adjust defaults in <a href="/settings" className="underline decoration-dotted hover:text-ink-700 dark:hover:text-ink-200">Settings</a>
             </p>
           </>
+        ) : mode === 'flow' ? (
+          <div className="space-y-8 text-center">
+            <div className="space-y-2">
+              <div className="text-[11px] uppercase tracking-[0.22em] text-accent">Flowtime</div>
+              <h1 className="font-display text-3xl sm:text-4xl text-ink-900 dark:text-ink-50">
+                Let it run as long as it wants
+              </h1>
+              <p className="text-sm text-ink-500 max-w-md mx-auto">
+                No target, no overflow. The clock counts up. Stop when you reach a natural pause. We'll suggest a proportional break.
+              </p>
+            </div>
+
+            <ProjectPicker projects={active ?? []} value={projectId} onChange={setProjectId} />
+
+            <div className="space-y-2 max-w-lg mx-auto">
+              <input
+                value={task}
+                onChange={e => {
+                  setTask(e.target.value)
+                  if (selectedTask && e.target.value !== selectedTask.name) setStoredTaskId(null)
+                }}
+                placeholder="What are you working on?"
+                onKeyDown={e => { if (e.key === 'Enter' && projectId) startFlow(projectId, storedTaskId, task.trim(), settings.timer) }}
+                className="w-full bg-transparent border-0 border-b border-ink-200 dark:border-ink-800 focus:border-accent focus:ring-0 outline-none font-display text-2xl sm:text-3xl text-center text-ink-900 dark:text-ink-50 placeholder:italic placeholder:text-ink-300 dark:placeholder:text-ink-700 py-3 px-2 transition-colors"
+              />
+            </div>
+
+            <div className="flex justify-center">
+              <Button
+                size="lg"
+                className="w-full max-w-sm"
+                onClick={() => startFlow(projectId, storedTaskId, task.trim(), settings.timer)}
+                disabled={!projectId || active.length === 0}
+              >
+                Start Flowing
+              </Button>
+            </div>
+
+            {active.length === 0 && (
+              <p className="text-center text-sm text-ink-500">Add a project from the Projects tab to get started.</p>
+            )}
+          </div>
         ) : (
           <div className="space-y-8 text-center">
             <div className="space-y-2">
@@ -382,6 +425,7 @@ export function TimerView() {
   }
 
   // Active phase
+  const isWorkLike = phase === 'work' || phase === 'flow'
   const canExtend = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
   const isBreakPhase = phase === 'shortBreak' || phase === 'longBreak'
   const queuedBreak = isBreakPhase && !isRunning && phaseElapsedSec === 0 && phaseStartedAt === null
@@ -391,7 +435,7 @@ export function TimerView() {
     ? `Time for a ${phase === 'longBreak' ? 'long' : 'short'} break`
     : isBreakPhase
       ? `On a ${phase === 'longBreak' ? 'long' : 'short'} break`
-      : (planTask || (phase === 'work' ? 'Focus session' : phase === 'breathing' ? 'Breathe' : phase === 'meditation' ? 'Sit' : ''))
+      : (planTask || (phase === 'work' ? 'Focus session' : phase === 'flow' ? 'Flow session' : phase === 'breathing' ? 'Breathe' : phase === 'meditation' ? 'Sit' : ''))
 
   return (
     <div className="mx-auto w-full max-w-2xl min-h-screen p-4 sm:p-8 flex flex-col items-center justify-center text-center gap-8 relative">
@@ -400,7 +444,7 @@ export function TimerView() {
       </div>
 
       <div key={phase} className="space-y-2 animate-[fadeIn_300ms_ease-out]">
-        {activeProject && phase === 'work' && (
+        {activeProject && isWorkLike && (
           <div className="flex justify-center">
             <ProjectSwitcher
               projects={active}
@@ -409,10 +453,10 @@ export function TimerView() {
             />
           </div>
         )}
-        {phase === 'work' ? (
+        {isWorkLike ? (
           <EditableIntention
             value={planTask}
-            placeholder="Focus session"
+            placeholder={phase === 'flow' ? 'Flow session' : 'Focus session'}
             onChange={setPlanTask}
           />
         ) : (
@@ -429,6 +473,7 @@ export function TimerView() {
       {phase !== 'breathing' && breath == null && (
         <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">
           {phase === 'work' && <>Pomodoro {workCount + 1} · {fmtDuration(phaseDurationSec)} planned</>}
+          {phase === 'flow' && <>Flow · counting up</>}
           {phase === 'meditation' && <>Sit · {fmtDuration(phaseDurationSec)}</>}
           {isBreakPhase && !queuedBreak && <>{breakLabel} · {fmtDuration(phaseDurationSec)}</>}
         </div>
@@ -467,7 +512,9 @@ export function TimerView() {
             </button>
           </div>
         )}
-        <Button variant="ghost" size="lg" onClick={skip}><SkipForward size={18} /> {queuedBreak ? 'Skip Break' : 'Skip'}</Button>
+        <Button variant="ghost" size="lg" onClick={skip}>
+          <SkipForward size={18} /> {queuedBreak ? 'Skip Break' : phase === 'flow' ? 'Wrap up' : 'Skip'}
+        </Button>
         <Button variant="ghost" size="lg" onClick={abort}><X size={18} /> End</Button>
       </div>
 
@@ -651,14 +698,17 @@ function ProjectSwitcher({ projects, value, onChange }: { projects: Project[]; v
   )
 }
 
-function ModePicker({ mode, onChange }: { mode: 'focus' | 'short' | 'long'; onChange: (m: 'focus' | 'short' | 'long') => void }) {
-  const tabs: Array<{ key: 'focus' | 'short' | 'long'; label: string }> = [
+type IdleMode = 'focus' | 'flow' | 'short' | 'long'
+
+function ModePicker({ mode, onChange }: { mode: IdleMode; onChange: (m: IdleMode) => void }) {
+  const tabs: Array<{ key: IdleMode; label: string }> = [
     { key: 'focus', label: 'Focus' },
-    { key: 'short', label: 'Short Break' },
-    { key: 'long', label: 'Long Break' },
+    { key: 'flow', label: 'Flow' },
+    { key: 'short', label: 'Short' },
+    { key: 'long', label: 'Long' },
   ]
   return (
-    <div className="grid grid-cols-3 rounded-xl bg-ink-100 dark:bg-ink-900 p-1 gap-1">
+    <div className="grid grid-cols-4 rounded-xl bg-ink-100 dark:bg-ink-900 p-1 gap-1">
       {tabs.map(t => (
         <button
           key={t.key}
