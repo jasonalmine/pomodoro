@@ -48,6 +48,8 @@ export type AudioSettings = {
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type Palette = 'ember' | 'pine' | 'slate'
 
+export type AnthropicModel = 'haiku' | 'sonnet' | 'opus'
+
 export type Settings = {
   id: 'singleton'
   timer: TimerDefaults
@@ -59,6 +61,18 @@ export type Settings = {
   palette: Palette
   dailyGoalPomodoros: number
   pocketBaseUrl?: string
+  anthropicApiKey?: string
+  anthropicModel?: AnthropicModel
+}
+
+// Local-only. Cached AI-generated review per ISO week (e.g. "2026-W19").
+export type WeeklyReview = {
+  id: string
+  weekStart: number
+  model: string
+  content: string
+  createdAt: number
+  updatedAt: number
 }
 
 export type Project = {

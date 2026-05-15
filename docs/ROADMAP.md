@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-14 (Tasks under projects + estimated Pomodoros + finish-time hint; Dexie v5)
+Last updated: 2026-05-15 (Tier 1: day-shutdown ritual, Flowtime mode, AI weekly review)
 
 ---
 
@@ -45,6 +45,7 @@ Last updated: 2026-05-14 (Tasks under projects + estimated Pomodoros + finish-ti
 - [x] JSON export/import includes tasks
 - [x] Day-shutdown ritual: end-of-day reflection (wins / blockers / tomorrow's first Pomodoro). Surfaces on idle next morning as "Yesterday's plan" prefill. Syncs via Supabase.
 - [x] Flowtime / stopwatch mode: count-up sessions with no target. Idle picker adds a Flow tab (4-up). Wrapping up proposes a proportional break (1/5 of focus, clamped 5–30 min). Pomodoros saved with `flowMode: true`.
+- [x] AI weekly review: bring-your-own-Anthropic-key; coach-style 200-word summary from last 7 days of sessions, reflections, and day-shutdowns. Caches per ISO week locally; never synced. Haiku / Sonnet / Opus selectable in Settings.
 
 ## QA gaps to verify
 

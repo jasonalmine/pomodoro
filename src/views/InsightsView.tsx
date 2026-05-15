@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { eachDayOfInterval, format, subDays } from 'date-fns'
-import { Moon } from 'lucide-react'
+import { Moon, Sparkles, RefreshCw } from 'lucide-react'
 import { db } from '../db'
 import { fmtDuration } from '../lib/format'
 import {
@@ -22,6 +22,8 @@ import { WeeklyStacks } from '../components/WeeklyStacks'
 import { YearHeatmap } from '../components/YearHeatmap'
 import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
 import { Button } from '../components/Button'
+import { currentWeekKey, generateWeeklyReview, modelIdFor } from '../lib/ai'
+import type { Pomodoro, WeeklyReview } from '../types'
 
 type ViewMode = 'today' | 'week' | 'lifetime' | 'year'
 
@@ -192,6 +194,7 @@ export function InsightsView() {
 
           <ProjectsSection totals={last30} title="By project" subtitle="Last 30 days" />
           <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
+          <WeeklyReviewSection weekStart={weekStart} weekEnd={weekEnd} weekPoms={weekPoms} />
         </>
       )}
 
@@ -243,6 +246,94 @@ export function InsightsView() {
 
       {shutdownOpen && <DayShutdownPanel onClose={() => setShutdownOpen(false)} now={now} />}
     </div>
+  )
+}
+
+function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date; weekEnd: Date; weekPoms: Pomodoro[] }) {
+  const settings = useSettings()
+  const model = settings.anthropicModel ?? 'haiku'
+  const hasKey = !!settings.anthropicApiKey
+  const weekKey = useMemo(() => currentWeekKey(weekStart), [weekStart])
+  const cached = useLiveQuery(() => db.weeklyReviews.get(weekKey), [weekKey])
+  const tasks = useLiveQuery(() => db.tasks.toArray(), [], [])
+  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const shutdowns = useLiveQuery(() => db.dayShutdowns.toArray(), [], [])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const generate = async () => {
+    if (!settings.anthropicApiKey) return
+    setBusy(true)
+    setError(null)
+    try {
+      const text = await generateWeeklyReview(
+        {
+          weekStart,
+          weekEnd,
+          pomodoros: weekPoms,
+          projects: projects ?? [],
+          tasks: tasks ?? [],
+          shutdowns: shutdowns ?? [],
+        },
+        settings.anthropicApiKey,
+        model,
+      )
+      const now = Date.now()
+      const row: WeeklyReview = {
+        id: weekKey,
+        weekStart: weekStart.getTime(),
+        model: modelIdFor(model),
+        content: text,
+        createdAt: cached?.createdAt ?? now,
+        updatedAt: now,
+      }
+      await db.weeklyReviews.put(row)
+    } catch (e) {
+      const err = e as { status?: number; message?: string }
+      setError(err?.message ? `${err.message}${err.status ? ` (HTTP ${err.status})` : ''}` : 'Request failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div className="flex items-start gap-3">
+        <Sparkles size={18} className="text-accent mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">AI weekly review</h2>
+          <p className="text-xs text-ink-500 mt-0.5">
+            {cached
+              ? <>Generated {format(cached.updatedAt, 'EEE MMM d, h:mm a')} · {cached.model}</>
+              : <>A short coach-style summary using your sessions, reflections, and day-shutdowns.</>}
+          </p>
+        </div>
+        {hasKey ? (
+          <Button size="sm" variant={cached ? 'secondary' : 'primary'} onClick={() => void generate()} disabled={busy || weekPoms.length === 0}>
+            <RefreshCw size={14} className={busy ? 'animate-spin' : ''} />
+            {busy ? 'Thinking…' : cached ? 'Regenerate' : 'Generate'}
+          </Button>
+        ) : (
+          <Button size="sm" variant="ghost" disabled>Add API key in Settings</Button>
+        )}
+      </div>
+
+      {error && (
+        <div className="text-xs text-rose-600 dark:text-rose-400 rounded-lg bg-rose-50 dark:bg-rose-500/10 px-3 py-2">
+          {error}
+        </div>
+      )}
+
+      {cached && (
+        <article className="prose prose-sm dark:prose-invert max-w-none text-sm text-ink-800 dark:text-ink-100 whitespace-pre-wrap leading-relaxed">
+          {cached.content}
+        </article>
+      )}
+
+      {!cached && !error && weekPoms.length === 0 && (
+        <p className="text-xs text-ink-500">No sessions logged this week yet — nothing to review.</p>
+      )}
+    </section>
   )
 }
 

@@ -1,14 +1,15 @@
 import { useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Bookmark, Cloud, CloudOff, Download, FileDown, LogOut, RefreshCw, Trash2, Upload } from 'lucide-react'
+import { Bookmark, Cloud, CloudOff, Download, FileDown, LogOut, RefreshCw, Sparkles, Trash2, Upload } from 'lucide-react'
 import { BREATH_PATTERNS, db } from '../db'
 import { useSettings, updateSettings } from '../hooks/useSettings'
 import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
 import { signInWithEmail, signOut, syncNow } from '../lib/sync'
+import { MODEL_LABELS } from '../lib/ai'
 import { Button } from '../components/Button'
-import type { AmbientId, Palette, ThemeMode } from '../types'
+import type { AmbientId, AnthropicModel, Palette, ThemeMode } from '../types'
 
 export function SettingsView() {
   const s = useSettings()
@@ -137,6 +138,8 @@ export function SettingsView() {
 
       <TemplatesSection />
 
+      <AIReviewSection />
+
       <CloudSyncSection />
 
       <DataSection />
@@ -209,6 +212,76 @@ function TemplatesSection() {
           </div>
         ))}
       </div>
+    </section>
+  )
+}
+
+function AIReviewSection() {
+  const s = useSettings()
+  const apiKey = s.anthropicApiKey ?? ''
+  const model: AnthropicModel = s.anthropicModel ?? 'haiku'
+  const [show, setShow] = useState(false)
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <Sparkles size={18} className="text-accent" />
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">AI weekly review</h2>
+      </div>
+      <p className="text-xs text-ink-500">
+        Generate a short coach-style summary of your week using Anthropic's API. Your key stays on this device (never synced).
+        Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer" className="underline">console.anthropic.com</a>.
+        A typical review costs less than $0.01.
+      </p>
+
+      <Field label="API key">
+        <div className="relative">
+          <input
+            type={show ? 'text' : 'password'}
+            value={apiKey}
+            onChange={e => updateSettings({ anthropicApiKey: e.target.value.trim() || undefined })}
+            placeholder="sk-ant-…"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
+          />
+          <button
+            type="button"
+            onClick={() => setShow(v => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-500 hover:text-ink-800 dark:hover:text-ink-100 px-2 py-1 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800"
+          >
+            {show ? 'Hide' : 'Show'}
+          </button>
+        </div>
+      </Field>
+
+      <Field label="Model">
+        <div className="flex flex-col gap-2">
+          {(['haiku', 'sonnet', 'opus'] as AnthropicModel[]).map(m => {
+            const selected = model === m
+            const meta = MODEL_LABELS[m]
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => updateSettings({ anthropicModel: m })}
+                className={
+                  'rounded-xl border px-3 py-2.5 text-left transition ' +
+                  (selected
+                    ? 'border-accent bg-accent/5'
+                    : 'border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700')
+                }
+              >
+                <div className={`text-sm font-medium ${selected ? 'text-accent' : 'text-ink-900 dark:text-ink-100'}`}>{meta.label}</div>
+                <div className="text-[11px] text-ink-500 mt-0.5">{meta.hint}</div>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
+      {!apiKey && (
+        <p className="text-[11px] text-ink-400">Without a key, the "Generate review" button on Insights will be disabled.</p>
+      )}
     </section>
   )
 }
