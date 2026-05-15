@@ -13,7 +13,7 @@ export function todayShutdownId(now = new Date()): string {
 export function DayShutdownPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
   const id = todayShutdownId(now)
   const existing = useLiveQuery(() => db.dayShutdowns.get(id), [id])
-  const projects = useLiveQuery(() => db.projects.where('archived').equals(0).toArray().catch(() => db.projects.toArray()), [], [])
+  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const activeProjects: Project[] = (projects ?? []).filter(p => !p.archived)
 
   const [wins, setWins] = useState('')

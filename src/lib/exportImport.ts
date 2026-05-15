@@ -83,12 +83,19 @@ export async function exportJson() {
     db.tasks.toArray(),
     db.dayShutdowns.toArray(),
   ])
+  // Strip secrets from the exported settings; they should never leave the device.
+  const safeSettings = ((): Settings => {
+    const s = settings ?? DEFAULT_SETTINGS
+    const { anthropicApiKey: _omit, ...rest } = s
+    void _omit
+    return rest as Settings
+  })()
   const bundle: ExportBundle = {
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
     projects,
     pomodoros,
-    settings: settings ?? DEFAULT_SETTINGS,
+    settings: safeSettings,
     tasks,
     dayShutdowns,
   }

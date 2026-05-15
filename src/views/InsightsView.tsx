@@ -23,6 +23,7 @@ import { YearHeatmap } from '../components/YearHeatmap'
 import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
 import { Button } from '../components/Button'
 import { currentWeekKey, generateWeeklyReview, modelIdFor } from '../lib/ai'
+import { MarkdownLite } from '../components/MarkdownLite'
 import type { Pomodoro, WeeklyReview } from '../types'
 
 type ViewMode = 'today' | 'week' | 'lifetime' | 'year'
@@ -325,8 +326,8 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
       )}
 
       {cached && (
-        <article className="prose prose-sm dark:prose-invert max-w-none text-sm text-ink-800 dark:text-ink-100 whitespace-pre-wrap leading-relaxed">
-          {cached.content}
+        <article>
+          <MarkdownLite source={cached.content} />
         </article>
       )}
 

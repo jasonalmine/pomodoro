@@ -565,7 +565,9 @@ async function endWorkIntoBreak(
 }
 
 // Flow ended via "skip" / "stop flowing": save the count-up Pomodoro and go to reflect.
-// Mirrors completeWork but uses live-elapsed seconds for plannedSeconds.
+// Mirrors completeWork but uses live-elapsed seconds for plannedSeconds, and
+// rewrites the plan's break durations to a proportional value so the
+// post-reflection break matches the "End" path.
 async function completeFlow(set: (p: Partial<TimerState>) => void, get: () => TimerState) {
   const s = get()
   const plan = s.plan
@@ -591,7 +593,10 @@ async function completeFlow(set: (p: Partial<TimerState>) => void, get: () => Ti
   }
   await db.pomodoros.put(pomodoro)
   chime('workEnd')
+  const breakMinutes = Math.max(5, Math.min(30, Math.round(actualSeconds / 60 / 5)))
+  const breakSec = breakMinutes * 60
   set({
+    plan: { ...plan, shortBreakSeconds: breakSec, longBreakSeconds: breakSec },
     workCount: s.workCount + 1,
     lastCompletedPomodoroId: pomodoro.id,
     phase: 'reflect',
