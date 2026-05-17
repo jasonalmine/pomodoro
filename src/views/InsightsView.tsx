@@ -22,7 +22,7 @@ import { WeeklyStacks } from '../components/WeeklyStacks'
 import { YearHeatmap } from '../components/YearHeatmap'
 import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
 import { Button } from '../components/Button'
-import { currentWeekKey, generateWeeklyReview, modelIdFor } from '../lib/ai'
+import { currentWeekKey, generateWeeklyReview, resolvedModel } from '../lib/ai'
 import { MarkdownLite } from '../components/MarkdownLite'
 import type { Pomodoro, WeeklyReview } from '../types'
 
@@ -252,8 +252,10 @@ export function InsightsView() {
 
 function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date; weekEnd: Date; weekPoms: Pomodoro[] }) {
   const settings = useSettings()
-  const model = settings.anthropicModel ?? 'haiku'
-  const hasKey = !!settings.anthropicApiKey
+  const provider = settings.aiProvider ?? 'gemini'
+  const apiKey = settings.aiApiKey
+  const model = resolvedModel(provider, settings.aiModel)
+  const hasKey = !!apiKey
   const weekKey = useMemo(() => currentWeekKey(weekStart), [weekStart])
   const cached = useLiveQuery(() => db.weeklyReviews.get(weekKey), [weekKey])
   const tasks = useLiveQuery(() => db.tasks.toArray(), [], [])
@@ -263,7 +265,7 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
   const [error, setError] = useState<string | null>(null)
 
   const generate = async () => {
-    if (!settings.anthropicApiKey) return
+    if (!apiKey) return
     setBusy(true)
     setError(null)
     try {
@@ -276,14 +278,15 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
           tasks: tasks ?? [],
           shutdowns: shutdowns ?? [],
         },
-        settings.anthropicApiKey,
+        provider,
+        apiKey,
         model,
       )
       const now = Date.now()
       const row: WeeklyReview = {
         id: weekKey,
         weekStart: weekStart.getTime(),
-        model: modelIdFor(model),
+        model: `${provider}:${model}`,
         content: text,
         createdAt: cached?.createdAt ?? now,
         updatedAt: now,

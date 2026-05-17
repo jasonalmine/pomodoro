@@ -48,7 +48,7 @@ export type AudioSettings = {
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type Palette = 'ember' | 'pine' | 'slate'
 
-export type AnthropicModel = 'haiku' | 'sonnet' | 'opus'
+export type AiProvider = 'anthropic' | 'openai' | 'gemini'
 
 export type Settings = {
   id: 'singleton'
@@ -61,8 +61,11 @@ export type Settings = {
   palette: Palette
   dailyGoalPomodoros: number
   pocketBaseUrl?: string
+  aiProvider?: AiProvider
+  aiApiKey?: string
+  aiModel?: string
+  // Deprecated (pre multi-provider). Read once for migration, then unused.
   anthropicApiKey?: string
-  anthropicModel?: AnthropicModel
 }
 
 // Local-only. Cached AI-generated review per ISO week (e.g. "2026-W19").

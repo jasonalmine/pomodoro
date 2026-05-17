@@ -1,17 +1,29 @@
 import { format } from 'date-fns'
-import type { AnthropicModel, DayShutdown, Pomodoro, Project, Task } from '../types'
+import type { AiProvider, DayShutdown, Pomodoro, Project, Task } from '../types'
 import { fmtDuration } from './format'
 
-const MODEL_IDS: Record<AnthropicModel, string> = {
-  haiku: 'claude-haiku-4-5',
-  sonnet: 'claude-sonnet-4-6',
-  opus: 'claude-opus-4-7',
+export const DEFAULT_MODELS: Record<AiProvider, string> = {
+  anthropic: 'claude-haiku-4-5',
+  openai: 'gpt-4o-mini',
+  gemini: 'gemini-2.0-flash',
 }
 
-export const MODEL_LABELS: Record<AnthropicModel, { label: string; hint: string }> = {
-  haiku: { label: 'Haiku 4.5', hint: 'Fastest, cheapest. Great for routine summaries.' },
-  sonnet: { label: 'Sonnet 4.6', hint: 'Balanced. Better pattern-spotting.' },
-  opus: { label: 'Opus 4.7', hint: 'Strongest reasoning. Slower and pricier.' },
+export const PROVIDER_META: Record<AiProvider, { label: string; keyUrl: string; hint: string }> = {
+  anthropic: {
+    label: 'Anthropic',
+    keyUrl: 'https://console.anthropic.com/settings/keys',
+    hint: 'Prepaid credits. A review costs well under $0.01.',
+  },
+  openai: {
+    label: 'OpenAI',
+    keyUrl: 'https://platform.openai.com/api-keys',
+    hint: 'Prepaid credits. gpt-4o-mini is very cheap.',
+  },
+  gemini: {
+    label: 'Google Gemini',
+    keyUrl: 'https://aistudio.google.com/apikey',
+    hint: 'Has a genuinely free tier (rate-limited). Cheapest option.',
+  },
 }
 
 export type WeeklyContext = {
@@ -33,10 +45,10 @@ Output format (markdown):
 One short paragraph naming the top projects and what they covered, with totals.
 
 ## Patterns
-2–4 bullets, each one specific. Examples: "Mornings were heavier than afternoons.", "Fridays dropped off after lunch.", "When you set a 25-minute target, you almost always extended."
+2-4 bullets, each one specific. Examples: "Mornings were heavier than afternoons.", "Fridays dropped off after lunch.", "When you set a 25-minute target, you almost always extended."
 
 ## What you said worked
-1–3 bullets pulled (lightly paraphrased) from their reflection notes and day-shutdown wins. Quote their language where it's vivid.
+1-3 bullets pulled (lightly paraphrased) from their reflection notes and day-shutdown wins. Quote their language where it's vivid.
 
 ## Something to try next week
 ONE small, concrete experiment grounded in the data. Not generic productivity advice.
@@ -44,7 +56,6 @@ ONE small, concrete experiment grounded in the data. Not generic productivity ad
 Keep the whole review under ~200 words. No greetings, no sign-off, no emojis.`
 
 function isoWeekKey(d: Date): string {
-  // ISO 8601 week — uses Thursday-of-week to compute the year correctly.
   const tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()))
   const day = tmp.getUTCDay() || 7
   tmp.setUTCDate(tmp.getUTCDate() + 4 - day)
@@ -62,7 +73,6 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
   const projById = new Map(projects.map(p => [p.id, p]))
   const taskById = new Map(tasks.map(t => [t.id, t]))
 
-  // Totals by project
   const totalsByProj = new Map<string, { seconds: number; count: number }>()
   for (const p of pomodoros) {
     const e = totalsByProj.get(p.projectId) ?? { seconds: 0, count: 0 }
@@ -78,7 +88,6 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
     })
     .join('\n') || '- (no sessions this week)'
 
-  // Per-day breakdown
   const byDay = new Map<string, { seconds: number; count: number }>()
   for (const p of pomodoros) {
     const k = format(new Date(p.startedAt), 'EEE MMM d')
@@ -88,10 +97,9 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
     byDay.set(k, e)
   }
   const dayLines = [...byDay.entries()]
-    .map(([k, v]) => `- ${k}: ${v.count}× (${fmtDuration(v.seconds)})`)
+    .map(([k, v]) => `- ${k}: ${v.count}x (${fmtDuration(v.seconds)})`)
     .join('\n') || '- (none)'
 
-  // Reflection notes
   const reflections: string[] = []
   for (const p of pomodoros) {
     const parts: string[] = []
@@ -106,7 +114,6 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
   }
   const reflectionBlock = reflections.length ? reflections.join('\n') : '- (no reflections logged)'
 
-  // Shutdowns
   const shutdownLines = shutdowns
     .filter(d => d.date >= weekStart.getTime() && d.date <= weekEnd.getTime())
     .map(d => {
@@ -118,7 +125,7 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
     })
     .join('\n') || '- (no day-shutdowns logged)'
 
-  return `# Week of ${format(weekStart, 'MMM d')} – ${format(weekEnd, 'MMM d, yyyy')}
+  return `# Week of ${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}
 
 ## Totals by project
 ${totalsLines}
@@ -137,54 +144,102 @@ Write the weekly review now, following the format in the system instructions.`
 
 export type AIError = { status: number; message: string }
 
-export async function callAnthropic(opts: {
-  apiKey: string
-  model: AnthropicModel
-  systemPrompt: string
-  userPrompt: string
-  maxTokens?: number
-}): Promise<string> {
+function aiErr(status: number, message: string): AIError {
+  return { status, message }
+}
+
+async function callAnthropic(apiKey: string, model: string, system: string, user: string, maxTokens: number): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-api-key': opts.apiKey,
+      'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: MODEL_IDS[opts.model],
-      max_tokens: opts.maxTokens ?? 1024,
-      system: opts.systemPrompt,
-      messages: [{ role: 'user', content: opts.userPrompt }],
+      model,
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content: user }],
     }),
   })
-
   if (!res.ok) {
     let detail = ''
-    try {
-      const j = await res.json()
-      detail = j?.error?.message ?? JSON.stringify(j)
-    } catch { detail = await res.text().catch(() => '') }
-    const err: AIError = { status: res.status, message: detail || `HTTP ${res.status}` }
-    throw err
+    try { const j = await res.json(); detail = j?.error?.message ?? JSON.stringify(j) } catch { detail = await res.text().catch(() => '') }
+    throw aiErr(res.status, detail || `HTTP ${res.status}`)
   }
-
   const json = await res.json() as { content?: Array<{ type: string; text?: string }> }
-  const text = (json.content ?? [])
-    .filter(b => b.type === 'text')
-    .map(b => b.text ?? '')
-    .join('\n')
-    .trim()
-  if (!text) throw { status: 0, message: 'Empty response from model.' } as AIError
+  const text = (json.content ?? []).filter(b => b.type === 'text').map(b => b.text ?? '').join('\n').trim()
+  if (!text) throw aiErr(0, 'Empty response from model.')
   return text
 }
 
-export async function generateWeeklyReview(ctx: WeeklyContext, apiKey: string, model: AnthropicModel): Promise<string> {
-  const prompt = buildWeeklyPrompt(ctx)
-  return callAnthropic({ apiKey, model, systemPrompt: SYSTEM_PROMPT, userPrompt: prompt, maxTokens: 600 })
+async function callOpenAI(apiKey: string, model: string, system: string, user: string, maxTokens: number): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: maxTokens,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }),
+  })
+  if (!res.ok) {
+    let detail = ''
+    try { const j = await res.json(); detail = j?.error?.message ?? JSON.stringify(j) } catch { detail = await res.text().catch(() => '') }
+    throw aiErr(res.status, detail || `HTTP ${res.status}`)
+  }
+  const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+  const text = (json.choices?.[0]?.message?.content ?? '').trim()
+  if (!text) throw aiErr(0, 'Empty response from model.')
+  return text
 }
 
-export function modelIdFor(model: AnthropicModel): string {
-  return MODEL_IDS[model]
+async function callGemini(apiKey: string, model: string, system: string, user: string, maxTokens: number): Promise<string> {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: system }] },
+      contents: [{ role: 'user', parts: [{ text: user }] }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    }),
+  })
+  if (!res.ok) {
+    let detail = ''
+    try { const j = await res.json(); detail = j?.error?.message ?? JSON.stringify(j) } catch { detail = await res.text().catch(() => '') }
+    throw aiErr(res.status, detail || `HTTP ${res.status}`)
+  }
+  const json = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
+  const text = (json.candidates?.[0]?.content?.parts ?? []).map(p => p.text ?? '').join('').trim()
+  if (!text) throw aiErr(0, 'Empty response from model (it may have hit a safety filter or token limit).')
+  return text
+}
+
+export async function generateWeeklyReview(
+  ctx: WeeklyContext,
+  provider: AiProvider,
+  apiKey: string,
+  model: string,
+): Promise<string> {
+  const prompt = buildWeeklyPrompt(ctx)
+  const m = model.trim() || DEFAULT_MODELS[provider]
+  const maxTokens = 700
+  switch (provider) {
+    case 'anthropic': return callAnthropic(apiKey, m, SYSTEM_PROMPT, prompt, maxTokens)
+    case 'openai': return callOpenAI(apiKey, m, SYSTEM_PROMPT, prompt, maxTokens)
+    case 'gemini': return callGemini(apiKey, m, SYSTEM_PROMPT, prompt, maxTokens)
+  }
+}
+
+export function resolvedModel(provider: AiProvider, model: string | undefined): string {
+  return (model && model.trim()) || DEFAULT_MODELS[provider]
 }

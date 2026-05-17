@@ -7,9 +7,9 @@ import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
 import { signInWithEmail, signOut, syncNow } from '../lib/sync'
-import { MODEL_LABELS } from '../lib/ai'
+import { DEFAULT_MODELS, PROVIDER_META } from '../lib/ai'
 import { Button } from '../components/Button'
-import type { AmbientId, AnthropicModel, Palette, ThemeMode } from '../types'
+import type { AiProvider, AmbientId, Palette, ThemeMode } from '../types'
 
 export function SettingsView() {
   const s = useSettings()
@@ -218,9 +218,18 @@ function TemplatesSection() {
 
 function AIReviewSection() {
   const s = useSettings()
-  const apiKey = s.anthropicApiKey ?? ''
-  const model: AnthropicModel = s.anthropicModel ?? 'haiku'
+  const provider: AiProvider = s.aiProvider ?? 'gemini'
+  const apiKey = s.aiApiKey ?? ''
+  const legacyKey = s.anthropicApiKey
+  const model = s.aiModel ?? ''
   const [show, setShow] = useState(false)
+  const meta = PROVIDER_META[provider]
+
+  const migrateLegacy = () => {
+    if (!legacyKey) return
+    updateSettings({ aiProvider: 'anthropic', aiApiKey: legacyKey, anthropicApiKey: undefined })
+  }
+
   return (
     <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
       <div className="flex items-center gap-2">
@@ -228,9 +237,42 @@ function AIReviewSection() {
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">AI weekly review</h2>
       </div>
       <p className="text-xs text-ink-500">
-        Generate a short coach-style summary of your week using Anthropic's API. Your key stays on this device (never synced).
-        Get one at <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer" className="underline">console.anthropic.com</a>.
-        A typical review costs less than $0.01.
+        A short coach-style summary of your week. Bring your own key from any supported provider. It stays on this device and is never synced or exported.
+      </p>
+
+      {legacyKey && !s.aiApiKey && (
+        <div className="rounded-xl border border-amber-300/60 dark:border-amber-500/30 bg-amber-50/60 dark:bg-amber-500/10 px-3 py-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3">
+          <span>Found an old Anthropic key. Keep using it?</span>
+          <button type="button" onClick={migrateLegacy} className="underline font-medium shrink-0">Migrate</button>
+        </div>
+      )}
+
+      <Field label="Provider">
+        <div className="grid grid-cols-3 gap-2">
+          {(['gemini', 'openai', 'anthropic'] as AiProvider[]).map(p => {
+            const selected = provider === p
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => updateSettings({ aiProvider: p, aiModel: '' })}
+                className={
+                  'rounded-xl border px-2 py-2.5 text-center transition ' +
+                  (selected
+                    ? 'border-accent bg-accent/5 text-accent'
+                    : 'border-ink-200 dark:border-ink-800 text-ink-700 dark:text-ink-200 hover:border-ink-300 dark:hover:border-ink-700')
+                }
+              >
+                <div className="text-xs font-medium">{PROVIDER_META[p].label}</div>
+              </button>
+            )
+          })}
+        </div>
+      </Field>
+
+      <p className="text-[11px] text-ink-500 -mt-1">
+        {meta.hint} Get a key at{' '}
+        <a href={meta.keyUrl} target="_blank" rel="noreferrer" className="underline">{new URL(meta.keyUrl).host}</a>.
       </p>
 
       <Field label="API key">
@@ -238,8 +280,8 @@ function AIReviewSection() {
           <input
             type={show ? 'text' : 'password'}
             value={apiKey}
-            onChange={e => updateSettings({ anthropicApiKey: e.target.value.trim() || undefined })}
-            placeholder="sk-ant-…"
+            onChange={e => updateSettings({ aiApiKey: e.target.value.trim() || undefined })}
+            placeholder={provider === 'anthropic' ? 'sk-ant-…' : provider === 'openai' ? 'sk-…' : 'AIza…'}
             autoComplete="off"
             spellCheck={false}
             className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
@@ -255,32 +297,21 @@ function AIReviewSection() {
       </Field>
 
       <Field label="Model">
-        <div className="flex flex-col gap-2">
-          {(['haiku', 'sonnet', 'opus'] as AnthropicModel[]).map(m => {
-            const selected = model === m
-            const meta = MODEL_LABELS[m]
-            return (
-              <button
-                key={m}
-                type="button"
-                onClick={() => updateSettings({ anthropicModel: m })}
-                className={
-                  'rounded-xl border px-3 py-2.5 text-left transition ' +
-                  (selected
-                    ? 'border-accent bg-accent/5'
-                    : 'border-ink-200 dark:border-ink-800 hover:border-ink-300 dark:hover:border-ink-700')
-                }
-              >
-                <div className={`text-sm font-medium ${selected ? 'text-accent' : 'text-ink-900 dark:text-ink-100'}`}>{meta.label}</div>
-                <div className="text-[11px] text-ink-500 mt-0.5">{meta.hint}</div>
-              </button>
-            )
-          })}
-        </div>
+        <input
+          value={model}
+          onChange={e => updateSettings({ aiModel: e.target.value })}
+          placeholder={`Default: ${DEFAULT_MODELS[provider]}`}
+          autoComplete="off"
+          spellCheck={false}
+          className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+        />
       </Field>
+      <p className="text-[11px] text-ink-400 -mt-1">
+        Leave blank to use <span className="font-mono">{DEFAULT_MODELS[provider]}</span>. Override if you want a different model.
+      </p>
 
       {!apiKey && (
-        <p className="text-[11px] text-ink-400">Without a key, the "Generate review" button on Insights will be disabled.</p>
+        <p className="text-[11px] text-ink-400">Without a key, the "Generate" button on Insights → Week is disabled.</p>
       )}
     </section>
   )

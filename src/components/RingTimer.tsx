@@ -66,9 +66,11 @@ export function RingTimer() {
   const offset = C * (1 - progress)
   const color = phaseRingColor(phase)
 
+  // In overtime, show the TOTAL elapsed focus time (planned + overshoot),
+  // not just the overshoot. The label still flags the overtime state.
   const displayTime = isFlow
     ? fmtTime(Math.round(elapsed))
-    : (isOverflow ? `+${fmtTime(overflow)}` : fmtTime(remaining))
+    : (isOverflow ? fmtTime(phaseDurationSec + overflow) : fmtTime(remaining))
   const label = isOverflow ? `Overtime · ${PHASE_LABEL[phase]}` : PHASE_LABEL[phase]
 
   return (

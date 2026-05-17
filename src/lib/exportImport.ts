@@ -86,8 +86,8 @@ export async function exportJson() {
   // Strip secrets from the exported settings; they should never leave the device.
   const safeSettings = ((): Settings => {
     const s = settings ?? DEFAULT_SETTINGS
-    const { anthropicApiKey: _omit, ...rest } = s
-    void _omit
+    const { anthropicApiKey: _a, aiApiKey: _b, ...rest } = s
+    void _a; void _b
     return rest as Settings
   })()
   const bundle: ExportBundle = {
