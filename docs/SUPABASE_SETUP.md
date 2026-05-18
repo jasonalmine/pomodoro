@@ -10,13 +10,51 @@ Cloud sync is optional. Without it, the app works fully local (IndexedDB only). 
 2. Pick a name (e.g. `pomodoro`) and a region close to you.
 3. Save the database password somewhere safe (you won't need it again for this app, just for the dashboard).
 
-### 2. Run the schema
+### 2. Apply the schema (CLI migrations — no dashboard paste)
 
-Open the SQL Editor in the Supabase dashboard and paste the contents of [`docs/supabase-schema.sql`](./supabase-schema.sql).
+Schema lives as version-controlled migrations in `supabase/migrations/`.
+You apply them with one command instead of pasting SQL into the dashboard.
 
-That file creates four tables — `projects`, `pomodoros`, `tasks`, `templates` — each gated by row-level security (`auth.uid() = user_id`). It's idempotent: every statement uses `IF NOT EXISTS` / `IF NOT EXISTS` policies / `ADD COLUMN IF NOT EXISTS`, so you can also rerun it on an existing project to bring it up to date.
+**One-time setup:**
 
-If you set up the database before tasks/templates landed, the same file will patch your existing tables in place (it adds `task_id`, `note_done`, `note_next` to `pomodoros`, and creates the missing tables).
+```bash
+# Install the CLI (macOS)
+brew install supabase/tap/supabase
+
+# Authenticate (opens a browser — no token pasting)
+supabase login
+
+# Link this repo to the remote project. Prompts for the DB password
+# in YOUR terminal — never paste it into chat or commit it.
+supabase link --project-ref wuwegfuxsbcuhmtkugfs
+```
+
+**Apply pending migrations (now and after every future schema change):**
+
+```bash
+npm run db:push        # supabase db push --linked
+```
+
+That applies any migration files the remote DB hasn't seen yet. The
+baseline migration is idempotent, so the first push is safe even though
+the database was originally bootstrapped by hand.
+
+**Adding a schema change later:**
+
+```bash
+npm run db:new add_some_column      # creates a timestamped empty migration
+# edit the new file in supabase/migrations/, then:
+npm run db:push
+npm run db:status                   # shows applied vs pending
+```
+
+The old single-file [`docs/supabase-schema.sql`](./supabase-schema.sql)
+is kept only as a dashboard fallback / reference snapshot. The
+migrations directory is the source of truth.
+
+**Credential hygiene:** `supabase login` stores its token locally
+(`~/.supabase`), and the DB password is entered interactively by
+`supabase link`. Never paste either into chat, code, or commits.
 
 ### 3. Allow magic-link logins
 

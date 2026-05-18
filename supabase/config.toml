@@ -1,0 +1,5 @@
+# Minimal Supabase config for remote migration pushes.
+# `supabase db push` operates on the linked remote project; the local
+# dev stack sections are not needed here. Run `supabase init` if you
+# ever want the full local-development config.
+project_id = "pomodoro"
