@@ -47,6 +47,7 @@ Last updated: 2026-05-15 (Tier 1: day-shutdown ritual, Flowtime mode, AI weekly 
 - [x] Flowtime / stopwatch mode: count-up sessions with no target. Idle picker adds a Flow tab (4-up). Wrapping up proposes a proportional break (1/5 of focus, clamped 5–30 min). Pomodoros saved with `flowMode: true`.
 - [x] AI weekly review: bring-your-own-key; coach-style 200-word summary from last 7 days of sessions, reflections, and day-shutdowns. Caches per ISO week locally; never synced or exported. Provider-agnostic: Anthropic / OpenAI / Gemini (Gemini has a free tier), model field overridable.
 - [x] Overtime ring shows total elapsed focus time (planned + overshoot), not just the overshoot. "Overtime · Focus" label still flags the state.
+- [x] Manual entry: log a past session (project, task, date, start time, duration) from Insights → Today. Saved as a normal Pomodoro with `manual: true`; flows through analytics, export, and Supabase sync.
 
 ## QA gaps to verify
 

@@ -99,6 +99,7 @@ export type Pomodoro = {
   actualSeconds: number
   completed: boolean
   flowMode?: boolean
+  manual?: boolean
   note?: string
   noteDone?: string
   noteNext?: string

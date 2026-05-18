@@ -21,7 +21,9 @@ import { DailyTimeline } from '../components/DailyTimeline'
 import { WeeklyStacks } from '../components/WeeklyStacks'
 import { YearHeatmap } from '../components/YearHeatmap'
 import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
+import { ManualEntryPanel } from '../components/ManualEntryPanel'
 import { Button } from '../components/Button'
+import { Plus } from 'lucide-react'
 import { currentWeekKey, generateWeeklyReview, resolvedModel } from '../lib/ai'
 import { MarkdownLite } from '../components/MarkdownLite'
 import type { Pomodoro, WeeklyReview } from '../types'
@@ -61,6 +63,7 @@ export function InsightsView() {
 
   const [view, setView] = useState<ViewMode>('today')
   const [shutdownOpen, setShutdownOpen] = useState(false)
+  const [manualOpen, setManualOpen] = useState(false)
   const goal = settings.dailyGoalPomodoros
 
   const todayShutdown = useLiveQuery(() => db.dayShutdowns.get(todayShutdownId(now)), [now.toDateString()])
@@ -123,7 +126,12 @@ export function InsightsView() {
           </section>
 
           <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
-            <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Today</h2>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Today</h2>
+              <Button size="sm" variant="ghost" onClick={() => setManualOpen(true)}>
+                <Plus size={14} /> Log past session
+              </Button>
+            </div>
             <div className="text-xs text-ink-500">
               {format(now, 'EEEE, MMMM d')} · {todayPoms.length} session{todayPoms.length === 1 ? '' : 's'} · {fmtDuration(todayStats.seconds)}
             </div>
@@ -246,6 +254,7 @@ export function InsightsView() {
       )}
 
       {shutdownOpen && <DayShutdownPanel onClose={() => setShutdownOpen(false)} now={now} />}
+      {manualOpen && <ManualEntryPanel onClose={() => setManualOpen(false)} now={now} />}
     </div>
   )
 }
