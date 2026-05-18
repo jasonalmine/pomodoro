@@ -1,10 +1,12 @@
 -- Pomodoro Supabase schema
 --
 -- Paste this whole file into the Supabase SQL Editor on a fresh project,
--- or run it on an existing one: every statement is idempotent
--- (CREATE IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / CREATE POLICY IF NOT EXISTS).
+-- or rerun it on an existing one: every statement is idempotent.
+-- Tables/columns/indexes use IF NOT EXISTS; policies are dropped then
+-- recreated (Postgres has no CREATE POLICY IF NOT EXISTS).
 --
--- Tables: projects, pomodoros, tasks, templates. Settings stay device-local.
+-- Tables: projects, pomodoros, tasks, templates, day_shutdowns.
+-- Settings + AI keys stay device-local (never synced).
 -- Row-level security: every row is scoped to auth.uid().
 
 ------------------------------------------------------------
@@ -23,7 +25,8 @@ create table if not exists projects (
 
 alter table projects enable row level security;
 
-create policy if not exists "Users manage their own projects" on projects
+drop policy if exists "Users manage their own projects" on projects;
+create policy "Users manage their own projects" on projects
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists projects_user_updated on projects (user_id, updated_at);
@@ -54,7 +57,8 @@ alter table pomodoros add column if not exists flow_mode boolean;
 
 alter table pomodoros enable row level security;
 
-create policy if not exists "Users manage their own pomodoros" on pomodoros
+drop policy if exists "Users manage their own pomodoros" on pomodoros;
+create policy "Users manage their own pomodoros" on pomodoros
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists pomodoros_user_updated on pomodoros (user_id, updated_at);
@@ -79,7 +83,8 @@ create table if not exists tasks (
 
 alter table tasks enable row level security;
 
-create policy if not exists "Users manage their own tasks" on tasks
+drop policy if exists "Users manage their own tasks" on tasks;
+create policy "Users manage their own tasks" on tasks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists tasks_user_updated on tasks (user_id, updated_at);
@@ -103,7 +108,8 @@ create table if not exists templates (
 
 alter table templates enable row level security;
 
-create policy if not exists "Users manage their own templates" on templates
+drop policy if exists "Users manage their own templates" on templates;
+create policy "Users manage their own templates" on templates
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists templates_user_updated on templates (user_id, updated_at);
@@ -126,7 +132,8 @@ create table if not exists day_shutdowns (
 
 alter table day_shutdowns enable row level security;
 
-create policy if not exists "Users manage their own day_shutdowns" on day_shutdowns
+drop policy if exists "Users manage their own day_shutdowns" on day_shutdowns;
+create policy "Users manage their own day_shutdowns" on day_shutdowns
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists day_shutdowns_user_updated on day_shutdowns (user_id, updated_at);
