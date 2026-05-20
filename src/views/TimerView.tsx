@@ -459,7 +459,15 @@ export function TimerView() {
           <EditableIntention
             value={planTask}
             placeholder={phase === 'flow' ? 'Flow session' : 'Focus session'}
-            onChange={setPlanTask}
+            onChange={(next) => {
+              setPlanTask(next)
+              // If the user renamed away from the linked task, unlink so the
+              // saved Pomodoro doesn't carry a mismatched taskId.
+              if (planTaskIdLive) {
+                const linked = (allTasks ?? []).find(t => t.id === planTaskIdLive)
+                if (!linked || linked.name !== next) setPlanTaskIdAction(null)
+              }
+            }}
           />
         ) : (
           <div className="font-display text-2xl sm:text-3xl text-ink-900 dark:text-ink-50 px-6 max-w-xl mx-auto leading-tight">

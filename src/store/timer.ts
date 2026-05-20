@@ -298,7 +298,9 @@ export const useTimer = create<TimerState>((set, get) => ({
     const s = get()
     if (!s.plan) return
     if (!projectId || projectId === s.plan.projectId) return
-    set({ plan: { ...s.plan, projectId } })
+    // Drop any linked task — a task only makes sense within its project,
+    // otherwise the saved Pomodoro ends up with cross-project taskId/projectId.
+    set({ plan: { ...s.plan, projectId, taskId: null } })
   },
 
   setTask: (task) => {
