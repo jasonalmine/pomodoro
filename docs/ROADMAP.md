@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-15 (Tier 1: day-shutdown ritual, Flowtime mode, AI weekly review)
+Last updated: 2026-05-20 (PWA install + offline service worker; mid-session task switcher; multi-provider AI review; manual entry; overtime ring shows total; Supabase CLI migrations)
 
 ---
 
@@ -48,6 +48,8 @@ Last updated: 2026-05-15 (Tier 1: day-shutdown ritual, Flowtime mode, AI weekly 
 - [x] AI weekly review: bring-your-own-key; coach-style 200-word summary from last 7 days of sessions, reflections, and day-shutdowns. Caches per ISO week locally; never synced or exported. Provider-agnostic: Anthropic / OpenAI / Gemini (Gemini has a free tier), model field overridable.
 - [x] Overtime ring shows total elapsed focus time (planned + overshoot), not just the overshoot. "Overtime · Focus" label still flags the state.
 - [x] Manual entry: log a past session (project, task, date, start time, duration) from Insights → Today. Saved as a normal Pomodoro with `manual: true`; flows through analytics, export, and Supabase sync.
+- [x] PWA install + service worker (vite-plugin-pwa): web manifest, iOS Safari "Add to Home Screen" meta tags, offline precache of app assets + Google Fonts, "Reload for new version" prompt when a deploy is detected.
+- [x] Mid-session task switcher: chips under the editable intention let you swap the linked task to any open task in the current project, or tap-again to unlink.
 
 ## QA gaps to verify
 
@@ -59,7 +61,7 @@ Last updated: 2026-05-15 (Tier 1: day-shutdown ritual, Flowtime mode, AI weekly 
 
 ## Open follow-ups for tasks
 - [x] Cloud sync (Supabase) for tasks + templates + new reflection fields + pomodoro.taskId
-- [ ] Mid-session task switcher in active screen (today only the project chip is interactive)
+- [x] Mid-session task switcher in active screen
 - [ ] Per-task drill-in / detail view
 - [ ] Drag-reorder tasks (currently `order` is set to createdAt; no UI to change)
 
@@ -78,14 +80,11 @@ Last updated: 2026-05-15 (Tier 1: day-shutdown ritual, Flowtime mode, AI weekly 
 - [ ] Per-project goals / quotas (e.g. "5h/week on Ventryx ops")
 - [ ] Auto-archive projects with no sessions in 90 days
 - [ ] Sound profiles per project (different chime / ambient defaults)
-- [ ] Yearly heatmap (GitHub contributions style)
 - [ ] Project comparison view (side-by-side bars over time)
 
 ## Tier D — big swings, defer until they're worth it
 
-- [ ] **PWA install + service worker** — offline support, install on iOS / Android home screen
 - [ ] **Mobile native app** wrapping the PWA (Capacitor or similar) for richer notifications and lock-screen timer
-- [ ] **AI weekly summary** — "Here's where your focus went, here's a pattern" once per week via Anthropic API
 - [ ] **Calendar integration** — block focus time on Google Calendar automatically while a session runs
 - [ ] **Slack / status integration** — auto-set status to "in focus" during sessions
 

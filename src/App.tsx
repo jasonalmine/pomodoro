@@ -8,6 +8,7 @@ import { usePageTitle } from './hooks/usePageTitle'
 import { useFaviconTimer } from './hooks/useFaviconTimer'
 import { useTimer } from './store/timer'
 import { Nav } from './components/Nav'
+import { PWAUpdatePrompt } from './components/PWAUpdatePrompt'
 import { TimerView } from './views/TimerView'
 import { CalendarView } from './views/CalendarView'
 import { InsightsView } from './views/InsightsView'
@@ -37,6 +38,7 @@ function Shell() {
           <Route path="/settings" element={<SettingsView />} />
         </Routes>
       </main>
+      <PWAUpdatePrompt />
     </div>
   )
 }

@@ -48,6 +48,8 @@ export function TimerView() {
   const planProjectId = useTimer(s => s.plan?.projectId ?? null)
   const planTask = useTimer(s => s.plan?.task ?? '')
   const setPlanProject = useTimer(s => s.setProject)
+  const planTaskIdLive = useTimer(s => s.plan?.taskId ?? null)
+  const setPlanTaskIdAction = useTimer(s => s.setPlanTaskId)
   const storedProjectId = useTimer(s => s.selectedProjectId)
   const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
   const storedTaskId = useTimer(s => s.selectedTaskId)
@@ -464,6 +466,21 @@ export function TimerView() {
             {intentionText}
           </div>
         )}
+        {isWorkLike && activeProject && (
+          <ActiveTaskSwitcher
+            tasks={(allTasks ?? []).filter(t => t.projectId === activeProject.id && !t.archivedAt && !t.completed)}
+            counts={taskCounts}
+            currentTaskId={planTaskIdLive}
+            onPick={(t) => {
+              if (planTaskIdLive === t.id) {
+                setPlanTaskIdAction(null)
+                return
+              }
+              setPlanTaskIdAction(t.id)
+              setPlanTask(t.name)
+            }}
+          />
+        )}
       </div>
 
       <div key={`ring-${phase}`} className="animate-[ringIn_400ms_ease-out]">
@@ -628,6 +645,45 @@ function EditableIntention({ value, placeholder, onChange }: { value: string; pl
       <span>{value || placeholder}</span>
       <Pencil size={14} className="opacity-0 group-hover:opacity-60 transition-opacity text-ink-500" />
     </button>
+  )
+}
+
+function ActiveTaskSwitcher({
+  tasks,
+  counts,
+  currentTaskId,
+  onPick,
+}: {
+  tasks: Task[]
+  counts: Map<string, number>
+  currentTaskId: string | null
+  onPick: (t: Task) => void
+}) {
+  if (tasks.length === 0) return null
+  return (
+    <div className="flex flex-wrap justify-center gap-1.5 pt-1 max-w-xl mx-auto">
+      {tasks.slice(0, 6).map(t => {
+        const done = counts.get(t.id) ?? 0
+        const selected = currentTaskId === t.id
+        return (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => onPick(t)}
+            className={
+              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition ' +
+              (selected
+                ? 'border-accent text-accent bg-accent/5'
+                : 'border-ink-200 dark:border-ink-800 text-ink-500 hover:text-ink-800 dark:hover:text-ink-100 hover:border-accent/40')
+            }
+            title={`${done}/${t.estPomodoros} Pomodoros logged${selected ? ' · tap to unlink' : ''}`}
+          >
+            <span className="truncate max-w-[10rem]">{t.name}</span>
+            <span className="text-[10px] tabular text-ink-400">{done}/{t.estPomodoros}</span>
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
