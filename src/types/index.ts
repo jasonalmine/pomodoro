@@ -100,6 +100,7 @@ export type Pomodoro = {
   completed: boolean
   flowMode?: boolean
   manual?: boolean
+  distractions?: number
   note?: string
   noteDone?: string
   noteNext?: string

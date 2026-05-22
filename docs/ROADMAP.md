@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-20 (PWA install + offline service worker; mid-session task switcher; multi-provider AI review; manual entry; overtime ring shows total; Supabase CLI migrations)
+Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PWA install + offline; mid-session task switcher; multi-provider AI review; Supabase CLI migrations)
 
 ---
 
@@ -50,13 +50,15 @@ Last updated: 2026-05-20 (PWA install + offline service worker; mid-session task
 - [x] Manual entry: log a past session (project, task, date, start time, duration) from Insights → Today. Saved as a normal Pomodoro with `manual: true`; flows through analytics, export, and Supabase sync.
 - [x] PWA install + service worker (vite-plugin-pwa): web manifest, iOS Safari "Add to Home Screen" meta tags, offline precache of app assets + Google Fonts, "Reload for new version" prompt when a deploy is detected.
 - [x] Mid-session task switcher: chips under the editable intention let you swap the linked task to any open task in the current project, or tap-again to unlink.
+- [x] Multi-tab presence: BroadcastChannel heartbeat surfaces a soft amber banner when another tab has an active session, so you don't end up running two timers and saving duplicate Pomodoros.
+- [x] Distraction tap counter: one-tap "Distracted" during work/flow. Count persists on the Pomodoro (`distractions` column), shows in the reflection panel. Resets at the start of each work/flow session.
 
 ## QA gaps to verify
 
 - [x] Pause-during-overflow holds state correctly on resume
 - [x] Overflow → +5 min → reaches new boundary → re-enters overflow (chime fires again)
 - [ ] iOS Safari "Add to Home Screen" PWA flow — audio, wake lock, notifications
-- [ ] Multiple-tab behavior — what happens if app is open in two tabs and timer running in one?
+- [x] Multiple-tab behavior — banner warns when another tab has an active session (cross-tab timer sync deliberately not attempted)
 - [ ] Daylight savings boundary — does a session that crosses 2am→3am break the calendar?
 
 ## Open follow-ups for tasks
@@ -69,7 +71,6 @@ Last updated: 2026-05-20 (PWA install + offline service worker; mid-session task
 
 - [ ] **"Allow overtime" toggle** in Settings (default on, off = strict 25m)
 - [ ] **Tags** — multi-label per session beyond project (e.g. `deep`, `admin`, `meeting`, `learning`)
-- [ ] **Distraction tap counter** — single button during focus to log "got distracted"; visible in session detail
 - [ ] **Session queue** — plan next 2-3 Pomodoros up front, auto-advance through them
 
 ## Tier C — polish

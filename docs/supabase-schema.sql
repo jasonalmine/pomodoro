@@ -55,6 +55,7 @@ alter table pomodoros add column if not exists note_done text;
 alter table pomodoros add column if not exists note_next text;
 alter table pomodoros add column if not exists flow_mode boolean;
 alter table pomodoros add column if not exists manual boolean;
+alter table pomodoros add column if not exists distractions int;
 
 alter table pomodoros enable row level security;
 

@@ -19,7 +19,7 @@ import { DurationStepper } from '../components/DurationStepper'
 import { fmtDuration } from '../lib/format'
 import { todayBounds, totalsInWindow, recentTasks, pomodorosByTask } from '../lib/stats'
 import type { Project, Task, Template } from '../types'
-import { Bookmark, AlertTriangle } from 'lucide-react'
+import { Bookmark, AlertTriangle, Zap } from 'lucide-react'
 import { useTabPresence } from '../hooks/useTabPresence'
 
 export function TimerView() {
@@ -52,6 +52,8 @@ export function TimerView() {
   const setPlanProject = useTimer(s => s.setProject)
   const planTaskIdLive = useTimer(s => s.plan?.taskId ?? null)
   const setPlanTaskIdAction = useTimer(s => s.setPlanTaskId)
+  const sessionDistractions = useTimer(s => s.sessionDistractions)
+  const addDistraction = useTimer(s => s.addDistraction)
   const storedProjectId = useTimer(s => s.selectedProjectId)
   const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
   const storedTaskId = useTimer(s => s.selectedTaskId)
@@ -545,6 +547,16 @@ export function TimerView() {
             </button>
           </div>
         )}
+        {isWorkLike && (
+          <Button
+            variant="ghost"
+            size="lg"
+            onClick={addDistraction}
+            title="Log a distraction"
+          >
+            <Zap size={18} /> Distracted{sessionDistractions > 0 ? ` · ${sessionDistractions}` : ''}
+          </Button>
+        )}
         <Button variant="ghost" size="lg" onClick={skip}>
           <SkipForward size={18} /> {queuedBreak ? 'Skip Break' : phase === 'flow' ? 'Wrap up' : 'Skip'}
         </Button>
@@ -855,7 +867,10 @@ function ReflectionPanel() {
         <div className="space-y-1 text-center">
           {project && <div className="flex justify-center"><ProjectChip project={project} /></div>}
           <div className="text-base text-ink-800 dark:text-ink-100 mt-2">{pom.task || 'Focus session'}</div>
-          <div className="text-xs text-ink-500 tabular">{fmtDuration(pom.actualSeconds)} focused</div>
+          <div className="text-xs text-ink-500 tabular">
+            {fmtDuration(pom.actualSeconds)} focused
+            {pom.distractions ? <> · <span className="text-amber-600 dark:text-amber-400">{pom.distractions} distraction{pom.distractions === 1 ? '' : 's'}</span></> : null}
+          </div>
           {linkedTask && (
             <div className="pt-2 flex items-center justify-center gap-2 text-xs text-ink-500">
               <span className="tabular">{linkedTaskCount}/{linkedTask.estPomodoros}🍅</span>

@@ -32,6 +32,7 @@ type PomodoroRow = {
   completed: boolean | null
   flow_mode: boolean | null
   manual: boolean | null
+  distractions: number | null
   note: string | null
   note_done: string | null
   note_next: string | null
@@ -118,6 +119,7 @@ function pomodoroToRow(p: Pomodoro, userId: string): PomodoroRow {
     completed: p.completed,
     flow_mode: p.flowMode ?? null,
     manual: p.manual ?? null,
+    distractions: p.distractions ?? null,
     note: p.note ?? null,
     note_done: p.noteDone ?? null,
     note_next: p.noteNext ?? null,
@@ -139,6 +141,7 @@ function rowToPomodoro(r: PomodoroRow): Pomodoro {
     completed: r.completed ?? false,
     flowMode: r.flow_mode ?? undefined,
     manual: r.manual ?? undefined,
+    distractions: r.distractions ?? undefined,
     note: r.note ?? undefined,
     noteDone: r.note_done ?? undefined,
     noteNext: r.note_next ?? undefined,

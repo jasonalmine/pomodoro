@@ -46,6 +46,8 @@ type TimerState = {
   setSelectedProjectId: (id: string) => void
   selectedTaskId: string | null
   setSelectedTaskId: (id: string | null) => void
+  sessionDistractions: number
+  addDistraction: () => void
 
   prepare: (plan: SessionPlan) => void
   start: () => void
@@ -129,6 +131,8 @@ export const useTimer = create<TimerState>((set, get) => ({
     persistSelectedTaskId(id)
     set({ selectedTaskId: id })
   },
+  sessionDistractions: 0,
+  addDistraction: () => set(s => ({ sessionDistractions: s.sessionDistractions + 1 })),
 
   prepare: (plan) => {
     clearBreathTimer()
@@ -215,14 +219,14 @@ export const useTimer = create<TimerState>((set, get) => ({
     // End during a work session: save the partial Pomodoro and roll straight into a running break.
     if (s.phase === 'work' && s.plan && !s.isCompleting) {
       const plan = s.plan
-      void endWorkIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, s.phaseDurationSec, set)
+      void endWorkIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, s.phaseDurationSec, s.sessionDistractions, set)
       return
     }
 
     // End a flow session: save the count-up Pomodoro and offer a proportional break.
     if (s.phase === 'flow' && s.plan && !s.isCompleting) {
       const plan = s.plan
-      void endFlowIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, set)
+      void endFlowIntoBreak(plan, s.workCount, s.currentPomodoroStartedAt, s.isRunning, s.phaseStartedAt, s.phaseElapsedSec, s.sessionDistractions, set)
       return
     }
 
@@ -383,6 +387,7 @@ export const useTimer = create<TimerState>((set, get) => ({
       lastCompletedPomodoroId: null,
       isCompleting: false,
       isOverflow: false,
+      sessionDistractions: 0,
     })
   },
 }))
@@ -476,6 +481,7 @@ function enterWork(plan: SessionPlan, set: (p: Partial<TimerState>) => void) {
     currentPomodoroStartedAt: Date.now(),
     isCompleting: false,
     isOverflow: false,
+    sessionDistractions: 0,
   })
 }
 
@@ -495,6 +501,7 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
     plannedSeconds: plan.workSeconds,
     actualSeconds,
     completed: finishedFully,
+    distractions: s.sessionDistractions || undefined,
     ritualUsed: plan.ritual.enabled,
     updatedAt: endedAt,
   }
@@ -524,6 +531,7 @@ async function endWorkIntoBreak(
   phaseStartedAt: number | null,
   phaseElapsedSec: number,
   phaseDurationSec: number,
+  distractions: number,
   set: (p: Partial<TimerState>) => void,
 ) {
   set({ isCompleting: true })
@@ -543,6 +551,7 @@ async function endWorkIntoBreak(
     plannedSeconds: plan.workSeconds,
     actualSeconds,
     completed,
+    distractions: distractions || undefined,
     ritualUsed: plan.ritual.enabled,
     updatedAt: endedAt,
   }
@@ -590,6 +599,7 @@ async function completeFlow(set: (p: Partial<TimerState>) => void, get: () => Ti
     actualSeconds,
     completed: true,
     flowMode: true,
+    distractions: s.sessionDistractions || undefined,
     ritualUsed: false,
     updatedAt: endedAt,
   }
@@ -620,6 +630,7 @@ async function endFlowIntoBreak(
   isRunning: boolean,
   phaseStartedAt: number | null,
   phaseElapsedSec: number,
+  distractions: number,
   set: (p: Partial<TimerState>) => void,
 ) {
   set({ isCompleting: true })
@@ -638,6 +649,7 @@ async function endFlowIntoBreak(
     actualSeconds,
     completed: true,
     flowMode: true,
+    distractions: distractions || undefined,
     ritualUsed: false,
     updatedAt: endedAt,
   }
