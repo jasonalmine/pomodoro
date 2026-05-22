@@ -34,7 +34,7 @@ export type TimerDefaults = {
   autoStartWork: boolean
 }
 
-export type AmbientId = 'none' | 'rain' | 'brown' | 'lofi'
+export type AmbientId = 'none' | 'rain' | 'brown' | 'lofi' | 'ticking'
 
 export type AudioSettings = {
   master: number

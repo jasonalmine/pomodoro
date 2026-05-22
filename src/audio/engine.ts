@@ -38,10 +38,33 @@ export function applySettings(s: AudioSettings) {
   if (ambientNode) ambientNode.gain.gain.value = s.ambientVolume
 }
 
-export function chime(kind: 'workEnd' | 'breakEnd' | 'start' | 'tick' = 'start', volume = 0.8) {
+export type ChimeKind = 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakOvertime'
+
+export function chime(kind: ChimeKind = 'start', volume = 0.8) {
   const c = ensureCtx()
   if (!master) return
   const now = c.currentTime
+
+  // Overtime crossing: single soft bell, distinct pitch per phase type.
+  // Focus = warm high (E5), break = cool low (D4). Slower attack/decay for a
+  // subtler "you crossed the line" cue vs. the bigger workEnd/breakEnd
+  // arpeggios that fire at actual completion.
+  if (kind === 'focusOvertime' || kind === 'breakOvertime') {
+    const f = kind === 'focusOvertime' ? 659.25 : 293.66 // E5 vs D4
+    const o = c.createOscillator()
+    const g = c.createGain()
+    o.type = 'sine'
+    o.frequency.value = f
+    const dur = 0.85
+    g.gain.setValueAtTime(0.0001, now)
+    g.gain.exponentialRampToValueAtTime(volume * 0.3, now + 0.08)
+    g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+    o.connect(g).connect(master!)
+    o.start(now)
+    o.stop(now + dur + 0.05)
+    return
+  }
+
   const freqs =
     kind === 'workEnd' ? [880, 660, 523] :
     kind === 'breakEnd' ? [523, 660, 880] :
@@ -107,6 +130,32 @@ function makeNoiseBuffer(c: AudioContext, kind: 'rain' | 'brown'): AudioBuffer {
   return buf
 }
 
+// Procedural 1Hz tick-tock. Two slightly different pitches alternate so it
+// reads as a real clock rather than a stuck metronome. Each click is a fast-
+// decay percussion impulse: a high sine plus a thin noise transient.
+function makeTickingBuffer(c: AudioContext): AudioBuffer {
+  const seconds = 4 // loops cleanly: tick, tock, tick, tock
+  const buf = c.createBuffer(2, c.sampleRate * seconds, c.sampleRate)
+  const clickSamples = Math.floor(0.04 * c.sampleRate) // 40ms per click
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch)
+    data.fill(0)
+    for (let beat = 0; beat < seconds; beat++) {
+      const isTock = beat % 2 === 1
+      const freq = isTock ? 2200 : 2800
+      const startSample = Math.floor(beat * c.sampleRate)
+      for (let i = 0; i < clickSamples; i++) {
+        const t = i / c.sampleRate
+        const env = Math.exp(-t * 90)
+        const tone = Math.sin(2 * Math.PI * freq * t) * 0.55
+        const noise = (Math.random() * 2 - 1) * 0.35
+        data[startSample + i] = (tone + noise) * env * 0.22
+      }
+    }
+  }
+  return buf
+}
+
 function makeLofiBuffer(c: AudioContext): AudioBuffer {
   // procedural lo-fi loop: soft chord pad over filtered noise
   const seconds = 8
@@ -151,6 +200,7 @@ export async function setAmbient(id: AmbientId, volume: number) {
   let buffer: AudioBuffer
   if (id === 'rain') buffer = makeNoiseBuffer(c, 'rain')
   else if (id === 'brown') buffer = makeNoiseBuffer(c, 'brown')
+  else if (id === 'ticking') buffer = makeTickingBuffer(c)
   else buffer = makeLofiBuffer(c)
   const source = c.createBufferSource()
   source.buffer = buffer

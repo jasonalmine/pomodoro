@@ -96,6 +96,7 @@ export function SettingsView() {
             <option value="rain">Rain</option>
             <option value="brown">Brown noise</option>
             <option value="lofi">Lo-fi pad</option>
+            <option value="ticking">Ticking clock</option>
           </select>
         </Field>
         <Slider label="Ambient volume" value={s.audio.ambientVolume}

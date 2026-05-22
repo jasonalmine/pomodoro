@@ -274,7 +274,9 @@ export const useTimer = create<TimerState>((set, get) => ({
       return
     }
     if (elapsed >= s.phaseDurationSec && !s.isOverflow) {
-      chime(s.phase === 'work' ? 'workEnd' : 'breakEnd')
+      // Subtle, distinct boundary cue. workEnd / breakEnd still fire on
+      // actual completion (only when no overflow happened, see completeWork).
+      chime(s.phase === 'work' ? 'focusOvertime' : 'breakOvertime')
       set({ isOverflow: true })
     }
   },

@@ -52,6 +52,8 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 - [x] Mid-session task switcher: chips under the editable intention let you swap the linked task to any open task in the current project, or tap-again to unlink.
 - [x] Multi-tab presence: BroadcastChannel heartbeat surfaces a soft amber banner when another tab has an active session, so you don't end up running two timers and saving duplicate Pomodoros.
 - [x] Distraction tap counter: one-tap "Distracted" during work/flow. Count persists on the Pomodoro (`distractions` column), shows in the reflection panel. Resets at the start of each work/flow session.
+- [x] Distinct overtime boundary chimes: subtle single-bell tones at the planned-time crossing — warm high E5 for focus, cool low D4 for break. Existing 3-note workEnd/breakEnd arpeggios still fire at actual completion.
+- [x] Ticking clock ambient option (procedural 1Hz tick-tock), plays during focus + flow phases only.
 
 ## QA gaps to verify
 
