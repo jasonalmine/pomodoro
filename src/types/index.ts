@@ -104,6 +104,7 @@ export type Pomodoro = {
   flowMode?: boolean
   manual?: boolean
   distractions?: number
+  tags?: string[]
   note?: string
   noteDone?: string
   noteNext?: string

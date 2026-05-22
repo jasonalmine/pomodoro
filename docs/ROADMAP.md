@@ -54,6 +54,8 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 - [x] Distraction tap counter: one-tap "Distracted" during work/flow. Count persists on the Pomodoro (`distractions` column), shows in the reflection panel. Resets at the start of each work/flow session.
 - [x] Distinct overtime boundary chimes: subtle single-bell tones at the planned-time crossing — warm high E5 for focus, cool low D4 for break. Existing 3-note workEnd/breakEnd arpeggios still fire at actual completion.
 - [x] Ticking clock ambient option (procedural 1Hz tick-tock), plays during focus + flow phases only.
+- [x] "Allow overtime" toggle in Settings: when off, sessions auto-advance at the planned boundary and the ±5 controls / E shortcut disable. Strict-Pomodoro mode.
+- [x] Tags per session: free-form labels (`deep`, `admin`, `meeting`…) captured in the reflection panel with recent-tag chips. Stored as `tags text[]` in Supabase. AI weekly review prompt includes tag totals so it can spot tag-level patterns.
 
 ## QA gaps to verify
 
@@ -71,8 +73,6 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 
 ## Tier B — useful, build after Tier A
 
-- [ ] **"Allow overtime" toggle** in Settings (default on, off = strict 25m)
-- [ ] **Tags** — multi-label per session beyond project (e.g. `deep`, `admin`, `meeting`, `learning`)
 - [ ] **Session queue** — plan next 2-3 Pomodoros up front, auto-advance through them
 
 ## Tier C — polish

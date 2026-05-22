@@ -58,7 +58,7 @@ type TimerState = {
   abort: () => void
   extend: (seconds: number) => void
   tick: () => void
-  saveReflection: (input: string | { note?: string; done?: string; next?: string }) => Promise<void>
+  saveReflection: (input: string | { note?: string; done?: string; next?: string; tags?: string[] }) => Promise<void>
   dismissReflection: () => void
   startStandaloneBreak: (type: 'short' | 'long', minutes: number) => void
   startFlow: (projectId: string, taskId: string | null, task: string, defaults: TimerDefaults) => void
@@ -292,14 +292,16 @@ export const useTimer = create<TimerState>((set, get) => ({
   saveReflection: async (input) => {
     const id = get().lastCompletedPomodoroId
     if (!id) { advanceFromReflect(set, get); return }
-    const payload = typeof input === 'string'
-      ? { note: input.trim() }
+    const tags = typeof input === 'string' ? undefined : (input.tags?.filter(t => t.trim()).map(t => t.trim().toLowerCase()) ?? undefined)
+    const payload: Partial<Pomodoro> = typeof input === 'string'
+      ? { note: input.trim() || undefined }
       : {
           note: input.note?.trim() || undefined,
           noteDone: input.done?.trim() || undefined,
           noteNext: input.next?.trim() || undefined,
         }
-    const hasAny = (payload.note || (payload as { noteDone?: string }).noteDone || (payload as { noteNext?: string }).noteNext)
+    if (tags && tags.length) payload.tags = tags
+    const hasAny = payload.note || payload.noteDone || payload.noteNext || (payload.tags && payload.tags.length)
     if (hasAny) await db.pomodoros.update(id, { ...payload, updatedAt: Date.now() })
     advanceFromReflect(set, get)
   },

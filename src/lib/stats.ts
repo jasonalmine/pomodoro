@@ -207,6 +207,28 @@ export function pomodorosByTask(poms: Pomodoro[]): Map<string, number> {
   return m
 }
 
+// Most-recently-used distinct tags across the last N pomodoros, ordered by
+// frequency-then-recency.
+export function recentTags(poms: Pomodoro[], limit = 8): string[] {
+  const sorted = [...poms].sort((a, b) => b.startedAt - a.startedAt).slice(0, 200)
+  const score = new Map<string, { count: number; latest: number }>()
+  for (const p of sorted) {
+    if (!p.tags) continue
+    for (const raw of p.tags) {
+      const t = raw.trim().toLowerCase()
+      if (!t) continue
+      const e = score.get(t) ?? { count: 0, latest: 0 }
+      e.count += 1
+      e.latest = Math.max(e.latest, p.startedAt)
+      score.set(t, e)
+    }
+  }
+  return [...score.entries()]
+    .sort((a, b) => (b[1].count - a[1].count) || (b[1].latest - a[1].latest))
+    .slice(0, limit)
+    .map(([t]) => t)
+}
+
 // Most-recent distinct task strings from completed Pomodoros, newest first.
 export function recentTasks(poms: Pomodoro[], limit = 3): string[] {
   const seen = new Set<string>()

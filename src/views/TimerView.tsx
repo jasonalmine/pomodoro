@@ -17,7 +17,7 @@ import { BreathingCircle } from '../components/BreathingCircle'
 import { ProjectChip } from '../components/ProjectChip'
 import { DurationStepper } from '../components/DurationStepper'
 import { fmtDuration } from '../lib/format'
-import { todayBounds, totalsInWindow, recentTasks, pomodorosByTask } from '../lib/stats'
+import { todayBounds, totalsInWindow, recentTasks, pomodorosByTask, recentTags } from '../lib/stats'
 import type { Project, Task, Template } from '../types'
 import { Bookmark, AlertTriangle, Zap } from 'lucide-react'
 import { useTabPresence } from '../hooks/useTabPresence'
@@ -837,9 +837,16 @@ function ReflectionPanel() {
   const [done, setDone] = useState('')
   const [next, setNext] = useState('')
   const [note, setNote] = useState('')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagDraft, setTagDraft] = useState('')
   const pom = useLiveQuery(async () => (lastId ? await db.pomodoros.get(lastId) : undefined), [lastId])
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const project = pom ? (projects ?? []).find(p => p.id === pom.projectId) : null
+  const allPoms = useLiveQuery(() => db.pomodoros.toArray(), [], [])
+  const recentTagOptions = useMemo(
+    () => recentTags(allPoms ?? [], 8).filter(t => !tags.includes(t)),
+    [allPoms, tags],
+  )
   const linkedTask = useLiveQuery(
     async () => (pom?.taskId ? await db.tasks.get(pom.taskId) : undefined),
     [pom?.taskId],
@@ -849,7 +856,16 @@ function ReflectionPanel() {
     [pom?.taskId],
   ) ?? 0
 
-  const hasAny = done.trim() || next.trim() || note.trim()
+  const hasAny = done.trim() || next.trim() || note.trim() || tags.length > 0
+
+  const addTag = (raw: string) => {
+    const t = raw.trim().toLowerCase()
+    if (!t) return
+    if (tags.includes(t)) return
+    setTags(prev => [...prev, t])
+    setTagDraft('')
+  }
+  const removeTag = (t: string) => setTags(prev => prev.filter(x => x !== t))
 
   const markTaskDone = async () => {
     if (!linkedTask || linkedTask.completed) return
@@ -893,6 +909,54 @@ function ReflectionPanel() {
       <div className="space-y-4">
         <PromptInput label="What did you finish?" value={done} onChange={setDone} placeholder="Shipped the calendar week view" />
         <PromptInput label="What's next?" value={next} onChange={setNext} placeholder="Day-axis colour pass" />
+
+        <div className="space-y-1.5">
+          <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Tags (optional)</span>
+          {tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pb-1">
+              {tags.map(t => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-full bg-accent/10 text-accent px-2.5 py-0.5 text-[11px]"
+                >
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(t)}
+                    className="hover:opacity-70 text-[14px] leading-none"
+                    aria-label={`Remove ${t}`}
+                  >×</button>
+                </span>
+              ))}
+            </div>
+          )}
+          <input
+            value={tagDraft}
+            onChange={e => setTagDraft(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag(tagDraft) }
+              else if (e.key === 'Backspace' && tagDraft === '' && tags.length) { removeTag(tags[tags.length - 1]) }
+            }}
+            onBlur={() => { if (tagDraft.trim()) addTag(tagDraft) }}
+            placeholder="deep, admin, meeting…"
+            className="w-full bg-transparent border-0 border-b border-ink-200 dark:border-ink-800 focus:border-accent focus:ring-0 outline-none text-sm text-ink-900 dark:text-ink-50 py-1.5 px-1 placeholder:text-ink-300 dark:placeholder:text-ink-700 transition-colors"
+          />
+          {recentTagOptions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-2">
+              {recentTagOptions.map(t => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => addTag(t)}
+                  className="text-[11px] text-ink-500 hover:text-ink-800 dark:hover:text-ink-100 px-2.5 py-0.5 rounded-full border border-ink-200 dark:border-ink-800 hover:border-accent/40 transition"
+                >
+                  + {t}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <label className="block space-y-1.5">
           <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Anything else (optional)</span>
           <textarea
@@ -906,7 +970,7 @@ function ReflectionPanel() {
 
       <div className="flex gap-3 max-w-md mx-auto">
         <Button variant="secondary" className="flex-1" onClick={() => dismissReflection()}>Skip</Button>
-        <Button className="flex-1" onClick={() => void saveReflection({ note, done, next })} disabled={!hasAny}>Save reflection</Button>
+        <Button className="flex-1" onClick={() => void saveReflection({ note, done, next, tags })} disabled={!hasAny}>Save reflection</Button>
       </div>
     </div>
   )

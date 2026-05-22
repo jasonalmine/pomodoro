@@ -106,6 +106,7 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
     if (p.noteDone) parts.push(`done: ${p.noteDone}`)
     if (p.noteNext) parts.push(`next: ${p.noteNext}`)
     if (p.note) parts.push(`note: ${p.note}`)
+    if (p.tags?.length) parts.push(`tags: ${p.tags.join(', ')}`)
     if (parts.length) {
       const proj = projById.get(p.projectId)?.name ?? '?'
       const task = p.taskId ? taskById.get(p.taskId)?.name ?? p.task : p.task
@@ -113,6 +114,22 @@ export function buildWeeklyPrompt(ctx: WeeklyContext): string {
     }
   }
   const reflectionBlock = reflections.length ? reflections.join('\n') : '- (no reflections logged)'
+
+  // Aggregate tag totals so the model can spot tag-level patterns even from
+  // sessions that didn't otherwise leave a reflection note.
+  const tagCounts = new Map<string, number>()
+  for (const p of pomodoros) {
+    if (!p.tags) continue
+    for (const raw of p.tags) {
+      const t = raw.trim().toLowerCase()
+      if (!t) continue
+      tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1)
+    }
+  }
+  const tagLines = [...tagCounts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([t, n]) => `- ${t}: ${n} session${n === 1 ? '' : 's'}`)
+    .join('\n') || '- (no tags)'
 
   const shutdownLines = shutdowns
     .filter(d => d.date >= weekStart.getTime() && d.date <= weekEnd.getTime())
@@ -135,6 +152,9 @@ ${dayLines}
 
 ## Per-session reflection notes
 ${reflectionBlock}
+
+## Tag totals
+${tagLines}
 
 ## Day-shutdown notes
 ${shutdownLines}
