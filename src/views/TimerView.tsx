@@ -19,7 +19,8 @@ import { DurationStepper } from '../components/DurationStepper'
 import { fmtDuration } from '../lib/format'
 import { todayBounds, totalsInWindow, recentTasks, pomodorosByTask } from '../lib/stats'
 import type { Project, Task, Template } from '../types'
-import { Bookmark } from 'lucide-react'
+import { Bookmark, AlertTriangle } from 'lucide-react'
+import { useTabPresence } from '../hooks/useTabPresence'
 
 export function TimerView() {
   useTimerTick()
@@ -28,6 +29,7 @@ export function TimerView() {
 
   const settings = useSettings()
   const phase = useTimer(s => s.phase)
+  const { otherTabsActive } = useTabPresence(phase)
   const isRunning = useTimer(s => s.isRunning)
   const breath = useTimer(s => s.breath)
   const prepare = useTimer(s => s.prepare)
@@ -196,6 +198,7 @@ export function TimerView() {
   if (phase === 'idle') {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 pt-10 sm:pt-20 pb-12 space-y-10">
+        {otherTabsActive && <OtherTabBanner />}
         <div className="flex justify-center">
           <ModePicker mode={mode} onChange={setMode} />
         </div>
@@ -444,6 +447,11 @@ export function TimerView() {
       <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
         <GoalRing current={todayCount} goal={settings.dailyGoalPomodoros} size={44} />
       </div>
+      {otherTabsActive && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-2 max-w-md w-full">
+          <OtherTabBanner />
+        </div>
+      )}
 
       <div key={phase} className="space-y-2 animate-[fadeIn_300ms_ease-out]">
         {activeProject && isWorkLike && (
@@ -653,6 +661,15 @@ function EditableIntention({ value, placeholder, onChange }: { value: string; pl
       <span>{value || placeholder}</span>
       <Pencil size={14} className="opacity-0 group-hover:opacity-60 transition-opacity text-ink-500" />
     </button>
+  )
+}
+
+function OtherTabBanner() {
+  return (
+    <div className="flex items-center gap-2 rounded-full border border-amber-300/60 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-900 dark:text-amber-200 shadow-sm">
+      <AlertTriangle size={12} className="shrink-0" />
+      <span className="truncate">A session is active in another tab. Starting one here will run a second timer.</span>
+    </div>
   )
 }
 
