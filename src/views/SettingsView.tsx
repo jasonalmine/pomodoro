@@ -437,7 +437,7 @@ function DataSection() {
     setStatus(null)
     try {
       const r = await importJson(file)
-      setStatus({ kind: 'ok', text: `Restored ${r.projects} project${r.projects === 1 ? '' : 's'}, ${r.pomodoros} session${r.pomodoros === 1 ? '' : 's'}, ${r.tasks} task${r.tasks === 1 ? '' : 's'}, ${r.dayShutdowns} shutdown${r.dayShutdowns === 1 ? '' : 's'}${r.settingsRestored ? ', plus settings' : ''}.` })
+      setStatus({ kind: 'ok', text: `Restored ${r.projects} project${r.projects === 1 ? '' : 's'}, ${r.pomodoros} session${r.pomodoros === 1 ? '' : 's'}, ${r.tasks} task${r.tasks === 1 ? '' : 's'}, ${r.dayShutdowns} shutdown${r.dayShutdowns === 1 ? '' : 's'}, ${r.dayNotes} note${r.dayNotes === 1 ? '' : 's'}${r.settingsRestored ? ', plus settings' : ''}.` })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Import failed.'
       setStatus({ kind: 'err', text: msg })

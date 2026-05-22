@@ -125,6 +125,17 @@ export type Task = {
   updatedAt: number
 }
 
+// One free-form note per local calendar day. `id` is the date key (yyyy-MM-dd).
+// Separate from DayShutdown — this is scratchpad/journal text, not the
+// structured wins/blockers/tomorrow ritual.
+export type DayNote = {
+  id: string
+  date: number
+  content: string
+  createdAt: number
+  updatedAt: number
+}
+
 // One per local calendar day. `id` is the date key (yyyy-MM-dd).
 export type DayShutdown = {
   id: string

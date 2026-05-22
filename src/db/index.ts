@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { DayShutdown, Pomodoro, Project, Settings, Task, Template, WeeklyReview } from '../types'
+import type { DayNote, DayShutdown, Pomodoro, Project, Settings, Task, Template, WeeklyReview } from '../types'
 
 class PomodoroDB extends Dexie {
   projects!: Table<Project, string>
@@ -9,6 +9,7 @@ class PomodoroDB extends Dexie {
   tasks!: Table<Task, string>
   dayShutdowns!: Table<DayShutdown, string>
   weeklyReviews!: Table<WeeklyReview, string>
+  dayNotes!: Table<DayNote, string>
 
   constructor() {
     super('pomodoro')
@@ -81,6 +82,17 @@ class PomodoroDB extends Dexie {
         tasks: 'id, projectId, completed, createdAt, updatedAt, order',
         dayShutdowns: 'id, date, updatedAt',
         weeklyReviews: 'id, weekStart, createdAt, updatedAt',
+      })
+    this.version(8)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+        templates: 'id, name, createdAt, updatedAt',
+        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
+        dayShutdowns: 'id, date, updatedAt',
+        weeklyReviews: 'id, weekStart, createdAt, updatedAt',
+        dayNotes: 'id, date, updatedAt',
       })
   }
 }

@@ -63,6 +63,9 @@ export function useSync(): SyncState {
     db.dayShutdowns.hook('creating', onWrite)
     db.dayShutdowns.hook('updating', onWrite)
     db.dayShutdowns.hook('deleting', onWrite)
+    db.dayNotes.hook('creating', onWrite)
+    db.dayNotes.hook('updating', onWrite)
+    db.dayNotes.hook('deleting', onWrite)
 
     // Periodic + connectivity-triggered sync.
     const interval = setInterval(() => {
@@ -102,6 +105,9 @@ export function useSync(): SyncState {
       db.dayShutdowns.hook('creating').unsubscribe(onWrite)
       db.dayShutdowns.hook('updating').unsubscribe(onWrite)
       db.dayShutdowns.hook('deleting').unsubscribe(onWrite)
+      db.dayNotes.hook('creating').unsubscribe(onWrite)
+      db.dayNotes.hook('updating').unsubscribe(onWrite)
+      db.dayNotes.hook('deleting').unsubscribe(onWrite)
       clearInterval(interval)
       window.removeEventListener('online', onOnline)
       document.removeEventListener('visibilitychange', onVisible)

@@ -21,6 +21,7 @@ import { DailyTimeline } from '../components/DailyTimeline'
 import { WeeklyStacks } from '../components/WeeklyStacks'
 import { YearHeatmap } from '../components/YearHeatmap'
 import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
+import { DayNoteCard } from '../components/DayNoteCard'
 import { ManualEntryPanel } from '../components/ManualEntryPanel'
 import { Button } from '../components/Button'
 import { Plus } from 'lucide-react'
@@ -140,6 +141,8 @@ export function InsightsView() {
 
           <ProjectsSection totals={last30} title="By project" subtitle="Last 30 days" />
           <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
+
+          <DayNoteCard now={now} />
 
           <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
             <div className="flex items-start gap-3">

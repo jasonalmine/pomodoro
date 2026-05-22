@@ -4,7 +4,7 @@
 import type { User } from '@supabase/supabase-js'
 import { db } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
-import type { DayShutdown, Pomodoro, Project, Task, Template } from '../types'
+import type { DayNote, DayShutdown, Pomodoro, Project, Task, Template } from '../types'
 
 const LAST_SYNC_KEY = 'pomodoro:lastSyncedAt'
 
@@ -77,6 +77,15 @@ type DayShutdownRow = {
   tomorrow_project_id: string | null
   tomorrow_task: string | null
   tomorrow_minutes: number | null
+  created_at: number
+  updated_at: number
+}
+
+type DayNoteRow = {
+  id: string
+  user_id: string
+  date: number
+  content: string
   created_at: number
   updated_at: number
 }
@@ -242,6 +251,27 @@ function rowToDayShutdown(r: DayShutdownRow): DayShutdown {
   }
 }
 
+function dayNoteToRow(n: DayNote, userId: string): DayNoteRow {
+  return {
+    id: n.id,
+    user_id: userId,
+    date: n.date,
+    content: n.content,
+    created_at: n.createdAt,
+    updated_at: n.updatedAt,
+  }
+}
+
+function rowToDayNote(r: DayNoteRow): DayNote {
+  return {
+    id: r.id,
+    date: r.date,
+    content: r.content ?? '',
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  }
+}
+
 export type SyncStatus = 'idle' | 'syncing' | 'error'
 
 let syncing = false
@@ -287,12 +317,13 @@ export async function signOut(): Promise<void> {
 
 async function pushDirty(userId: string, since: number): Promise<void> {
   if (!supabase) return
-  const [projects, pomodoros, tasks, templates, shutdowns] = await Promise.all([
+  const [projects, pomodoros, tasks, templates, shutdowns, notes] = await Promise.all([
     db.projects.where('updatedAt').above(since).toArray(),
     db.pomodoros.where('updatedAt').above(since).toArray(),
     db.tasks.where('updatedAt').above(since).toArray(),
     db.templates.where('updatedAt').above(since).toArray(),
     db.dayShutdowns.where('updatedAt').above(since).toArray(),
+    db.dayNotes.where('updatedAt').above(since).toArray(),
   ])
 
   if (projects.length) {
@@ -324,17 +355,24 @@ async function pushDirty(userId: string, since: number): Promise<void> {
     const { error } = await supabase.from('day_shutdowns').upsert(rows, { onConflict: 'id' })
     if (error) throw error
   }
+
+  if (notes.length) {
+    const rows = notes.map(n => dayNoteToRow(n, userId))
+    const { error } = await supabase.from('day_notes').upsert(rows, { onConflict: 'id' })
+    if (error) throw error
+  }
 }
 
 async function pullSince(userId: string, since: number): Promise<number> {
   if (!supabase) return since
 
-  const [projRes, pomRes, taskRes, tmplRes, shutRes] = await Promise.all([
+  const [projRes, pomRes, taskRes, tmplRes, shutRes, noteRes] = await Promise.all([
     supabase.from('projects').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('pomodoros').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('tasks').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('templates').select('*').eq('user_id', userId).gt('updated_at', since),
     supabase.from('day_shutdowns').select('*').eq('user_id', userId).gt('updated_at', since),
+    supabase.from('day_notes').select('*').eq('user_id', userId).gt('updated_at', since),
   ])
 
   if (projRes.error) throw projRes.error
@@ -342,6 +380,7 @@ async function pullSince(userId: string, since: number): Promise<number> {
   if (taskRes.error) throw taskRes.error
   if (tmplRes.error) throw tmplRes.error
   if (shutRes.error) throw shutRes.error
+  if (noteRes.error) throw noteRes.error
 
   let maxUpdated = since
 
@@ -413,6 +452,20 @@ async function pullSince(userId: string, since: number): Promise<number> {
       if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
     })
     if (toPut.length) await db.dayShutdowns.bulkPut(toPut)
+  }
+
+  const noteRows = (noteRes.data ?? []) as DayNoteRow[]
+  if (noteRows.length) {
+    const local = await db.dayNotes.bulkGet(noteRows.map(r => r.id))
+    const toPut: DayNote[] = []
+    noteRows.forEach((r, i) => {
+      const existing = local[i]
+      if (!existing || existing.updatedAt < r.updated_at) {
+        toPut.push(rowToDayNote(r))
+      }
+      if (r.updated_at > maxUpdated) maxUpdated = r.updated_at
+    })
+    if (toPut.length) await db.dayNotes.bulkPut(toPut)
   }
 
   return maxUpdated

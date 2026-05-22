@@ -1,5 +1,5 @@
 import { db, DEFAULT_SETTINGS } from '../db'
-import type { DayShutdown, Pomodoro, Project, Settings, Task } from '../types'
+import type { DayNote, DayShutdown, Pomodoro, Project, Settings, Task } from '../types'
 
 const EXPORT_VERSION = 1
 
@@ -11,6 +11,7 @@ export type ExportBundle = {
   settings: Settings
   tasks?: Task[]
   dayShutdowns?: DayShutdown[]
+  dayNotes?: DayNote[]
 }
 
 function todayStamp(): string {
@@ -76,12 +77,13 @@ export async function exportCsv() {
 }
 
 export async function exportJson() {
-  const [projects, pomodoros, settings, tasks, dayShutdowns] = await Promise.all([
+  const [projects, pomodoros, settings, tasks, dayShutdowns, dayNotes] = await Promise.all([
     db.projects.toArray(),
     db.pomodoros.toArray(),
     db.settings.get('singleton'),
     db.tasks.toArray(),
     db.dayShutdowns.toArray(),
+    db.dayNotes.toArray(),
   ])
   // Strip secrets from the exported settings; they should never leave the device.
   const safeSettings = ((): Settings => {
@@ -98,6 +100,7 @@ export async function exportJson() {
     settings: safeSettings,
     tasks,
     dayShutdowns,
+    dayNotes,
   }
   downloadBlob(
     `pomodoro-backup-${todayStamp()}.json`,
@@ -110,6 +113,7 @@ export type ImportResult = {
   pomodoros: number
   tasks: number
   dayShutdowns: number
+  dayNotes: number
   settingsRestored: boolean
 }
 
@@ -131,21 +135,25 @@ export async function importJson(file: File): Promise<ImportResult> {
 
   const bundleTasks = Array.isArray(bundle.tasks) ? bundle.tasks : []
   const bundleShutdowns = Array.isArray(bundle.dayShutdowns) ? bundle.dayShutdowns : []
+  const bundleNotes = Array.isArray(bundle.dayNotes) ? bundle.dayNotes : []
 
-  await db.transaction('rw', [db.projects, db.pomodoros, db.settings, db.tasks, db.dayShutdowns], async () => {
+  await db.transaction('rw', [db.projects, db.pomodoros, db.settings, db.tasks, db.dayShutdowns, db.dayNotes], async () => {
     await db.projects.clear()
     await db.pomodoros.clear()
     await db.tasks.clear()
     await db.dayShutdowns.clear()
+    await db.dayNotes.clear()
     const now = Date.now()
     const projects = (bundle.projects as Project[]).map(p => ({ ...p, updatedAt: p.updatedAt ?? p.createdAt ?? now }))
     const pomodoros = (bundle.pomodoros as Pomodoro[]).map(p => ({ ...p, updatedAt: p.updatedAt ?? p.endedAt ?? p.startedAt ?? now }))
     const tasks = (bundleTasks as Task[]).map(t => ({ ...t, updatedAt: t.updatedAt ?? t.createdAt ?? now }))
     const shutdowns = (bundleShutdowns as DayShutdown[]).map(d => ({ ...d, updatedAt: d.updatedAt ?? d.createdAt ?? now }))
+    const notes = (bundleNotes as DayNote[]).map(n => ({ ...n, updatedAt: n.updatedAt ?? n.createdAt ?? now }))
     await db.projects.bulkPut(projects)
     await db.pomodoros.bulkPut(pomodoros)
     if (tasks.length) await db.tasks.bulkPut(tasks)
     if (shutdowns.length) await db.dayShutdowns.bulkPut(shutdowns)
+    if (notes.length) await db.dayNotes.bulkPut(notes)
     if (bundle.settings) {
       await db.settings.put({ ...DEFAULT_SETTINGS, ...bundle.settings, id: 'singleton' })
     }
@@ -156,6 +164,7 @@ export async function importJson(file: File): Promise<ImportResult> {
     pomodoros: bundle.pomodoros.length,
     tasks: bundleTasks.length,
     dayShutdowns: bundleShutdowns.length,
+    dayNotes: bundleNotes.length,
     settingsRestored: !!bundle.settings,
   }
 }
