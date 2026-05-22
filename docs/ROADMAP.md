@@ -56,6 +56,8 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 - [x] Ticking clock ambient option (procedural 1Hz tick-tock), plays during focus + flow phases only.
 - [x] "Allow overtime" toggle in Settings: when off, sessions auto-advance at the planned boundary and the ±5 controls / E shortcut disable. Strict-Pomodoro mode.
 - [x] Tags per session: free-form labels (`deep`, `admin`, `meeting`…) captured in the reflection panel with recent-tag chips. Stored as `tags text[]` in Supabase. AI weekly review prompt includes tag totals so it can spot tag-level patterns.
+- [x] Per-day notes journal: free-form scratchpad note per calendar day, separate from per-session reflections and day-shutdowns. Auto-saves on debounce + blur. New `day_notes` table syncs via Supabase.
+- [x] Onboarding empty state: soft welcome card on the idle Timer screen for first-time visitors (zero pomodoros), dismissable. Disappears naturally after the first saved session.
 
 ## QA gaps to verify
 
@@ -77,9 +79,7 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 
 ## Tier C — polish
 
-- [ ] Onboarding empty state for first-time users (nudge to create project, set goal)
 - [ ] Visual polish for overflow ring (second ring growing outward instead of fade)
-- [ ] Notes journal per day (free-form text per date, separate from per-session reflections)
 - [ ] Per-project goals / quotas (e.g. "5h/week on Ventryx ops")
 - [ ] Auto-archive projects with no sessions in 90 days
 - [ ] Sound profiles per project (different chime / ambient defaults)

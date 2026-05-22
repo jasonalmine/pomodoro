@@ -16,6 +16,7 @@ import { GoalRing } from '../components/GoalRing'
 import { BreathingCircle } from '../components/BreathingCircle'
 import { ProjectChip } from '../components/ProjectChip'
 import { DurationStepper } from '../components/DurationStepper'
+import { WelcomeCard } from '../components/WelcomeCard'
 import { fmtDuration } from '../lib/format'
 import { todayBounds, totalsInWindow, recentTasks, pomodorosByTask, recentTags } from '../lib/stats'
 import type { Project, Task, Template } from '../types'
@@ -202,6 +203,7 @@ export function TimerView() {
     return (
       <div className="mx-auto w-full max-w-2xl px-4 sm:px-6 pt-10 sm:pt-20 pb-12 space-y-10">
         {otherTabsActive && <OtherTabBanner />}
+        <WelcomeCard />
         <div className="flex justify-center">
           <ModePicker mode={mode} onChange={setMode} />
         </div>
