@@ -14,6 +14,7 @@ type SessionPlan = {
   ritual: RitualConfig
   autoStartBreaks: boolean
   autoStartWork: boolean
+  allowOvertime: boolean
   flowMode?: boolean
 }
 
@@ -274,6 +275,13 @@ export const useTimer = create<TimerState>((set, get) => ({
       return
     }
     if (elapsed >= s.phaseDurationSec && !s.isOverflow) {
+      // Strict mode (allowOvertime=false): advance immediately instead of
+      // entering overflow. The advance path saves the Pomodoro / rolls into
+      // the next phase and is responsible for its own chime.
+      if (s.plan && !s.plan.allowOvertime) {
+        advancePhase(set, get)
+        return
+      }
       // Subtle, distinct boundary cue. workEnd / breakEnd still fire on
       // actual completion (only when no overflow happened, see completeWork).
       chime(s.phase === 'work' ? 'focusOvertime' : 'breakOvertime')
@@ -374,6 +382,7 @@ export const useTimer = create<TimerState>((set, get) => ({
       ritual: { enabled: false, patternId: 'box', cycles: 0, meditationSeconds: 0, breathCues: false },
       autoStartBreaks: defaults.autoStartBreaks,
       autoStartWork: defaults.autoStartWork,
+      allowOvertime: defaults.allowOvertime,
       flowMode: true,
     }
     chime('start')
@@ -773,5 +782,6 @@ export function planFromSettings(
     ritual: { ...ritual, enabled: (override.useRitual ?? ritual.enabled) },
     autoStartBreaks: defaults.autoStartBreaks,
     autoStartWork: defaults.autoStartWork,
+    allowOvertime: defaults.allowOvertime,
   }
 }

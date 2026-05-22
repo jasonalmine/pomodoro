@@ -50,6 +50,11 @@ export function SettingsView() {
           <p className="text-[11px] text-ink-500 -mt-1">
             Off (default) gives you a moment to decide before each phase starts.
           </p>
+          <Toggle label="Allow overtime" checked={s.timer.allowOvertime}
+            onChange={v => updateSettings({ timer: { ...s.timer, allowOvertime: v } })} />
+          <p className="text-[11px] text-ink-500 -mt-1">
+            On (default): the timer keeps counting after the planned time and the ±5 min buttons are available. Off (strict Pomodoro): sessions auto-advance at the boundary, and you can't extend.
+          </p>
         </div>
       </Section>
 

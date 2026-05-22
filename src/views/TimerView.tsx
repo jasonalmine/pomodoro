@@ -54,6 +54,7 @@ export function TimerView() {
   const setPlanTaskIdAction = useTimer(s => s.setPlanTaskId)
   const sessionDistractions = useTimer(s => s.sessionDistractions)
   const addDistraction = useTimer(s => s.addDistraction)
+  const planAllowOvertime = useTimer(s => s.plan?.allowOvertime ?? true)
   const storedProjectId = useTimer(s => s.selectedProjectId)
   const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
   const storedTaskId = useTimer(s => s.selectedTaskId)
@@ -433,7 +434,7 @@ export function TimerView() {
 
   // Active phase
   const isWorkLike = phase === 'work' || phase === 'flow'
-  const canExtend = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
+  const canExtend = planAllowOvertime && (phase === 'work' || phase === 'shortBreak' || phase === 'longBreak')
   const isBreakPhase = phase === 'shortBreak' || phase === 'longBreak'
   const queuedBreak = isBreakPhase && !isRunning && phaseElapsedSec === 0 && phaseStartedAt === null
   const breakLabel = phase === 'longBreak' ? 'Long Break' : 'Short Break'

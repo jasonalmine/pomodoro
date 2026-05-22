@@ -108,6 +108,7 @@ export const DEFAULT_SETTINGS: Settings = {
     longBreakEvery: 4,
     autoStartBreaks: false,
     autoStartWork: false,
+    allowOvertime: true,
   },
   ritual: {
     enabled: true,

@@ -32,6 +32,9 @@ export type TimerDefaults = {
   longBreakEvery: number
   autoStartBreaks: boolean
   autoStartWork: boolean
+  // When false, sessions auto-advance at the planned boundary instead of
+  // entering overflow, and ±5 min adjusters are hidden. Strict-Pomodoro mode.
+  allowOvertime: boolean
 }
 
 export type AmbientId = 'none' | 'rain' | 'brown' | 'lofi' | 'ticking'

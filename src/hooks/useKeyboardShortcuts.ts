@@ -31,8 +31,9 @@ export function useKeyboardShortcuts() {
         e.preventDefault()
         skip()
       } else if (key === 'e' || key === 'E') {
-        const canExtend = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
-        if (!canExtend) return
+        const inMeteredPhase = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
+        const allowOvertime = state.plan?.allowOvertime ?? true
+        if (!inMeteredPhase || !allowOvertime) return
         e.preventDefault()
         if (shift) adjustPhase(-5 * 60)
         else extend(5 * 60)
