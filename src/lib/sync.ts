@@ -300,13 +300,29 @@ export async function getCurrentUser(): Promise<User | null> {
   return data.user ?? null
 }
 
+// Supabase / PostgREST returns plain error objects (not Error instances), so
+// throwing them directly results in `[object Object]` once `String(e)` runs in
+// the catch site. Normalize every throw into a real Error with the most
+// informative message we can extract (PostgREST adds `details`/`hint`/`code`).
+function toError(e: unknown, fallback = 'Request failed'): Error {
+  if (e instanceof Error) return e
+  if (e && typeof e === 'object') {
+    const o = e as { message?: unknown; details?: unknown; hint?: unknown; code?: unknown }
+    const parts = [o.message, o.details, o.hint].filter(p => typeof p === 'string' && p) as string[]
+    const codeSuffix = typeof o.code === 'string' && o.code ? ` [${o.code}]` : ''
+    if (parts.length) return new Error(parts.join(' · ') + codeSuffix)
+    try { return new Error(JSON.stringify(e)) } catch { /* fallthrough */ }
+  }
+  return new Error(typeof e === 'string' && e ? e : fallback)
+}
+
 export async function signInWithEmail(email: string): Promise<void> {
   if (!supabase) throw new Error('Cloud sync is not configured.')
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: window.location.origin },
   })
-  if (error) throw error
+  if (error) throw toError(error)
 }
 
 export async function signOut(): Promise<void> {
@@ -329,37 +345,37 @@ async function pushDirty(userId: string, since: number): Promise<void> {
   if (projects.length) {
     const rows = projects.map(p => projectToRow(p, userId))
     const { error } = await supabase.from('projects').upsert(rows, { onConflict: 'id' })
-    if (error) throw error
+    if (error) throw toError(error)
   }
 
   if (pomodoros.length) {
     const rows = pomodoros.map(p => pomodoroToRow(p, userId))
     const { error } = await supabase.from('pomodoros').upsert(rows, { onConflict: 'id' })
-    if (error) throw error
+    if (error) throw toError(error)
   }
 
   if (tasks.length) {
     const rows = tasks.map(t => taskToRow(t, userId))
     const { error } = await supabase.from('tasks').upsert(rows, { onConflict: 'id' })
-    if (error) throw error
+    if (error) throw toError(error)
   }
 
   if (templates.length) {
     const rows = templates.map(t => templateToRow(t, userId))
     const { error } = await supabase.from('templates').upsert(rows, { onConflict: 'id' })
-    if (error) throw error
+    if (error) throw toError(error)
   }
 
   if (shutdowns.length) {
     const rows = shutdowns.map(d => dayShutdownToRow(d, userId))
     const { error } = await supabase.from('day_shutdowns').upsert(rows, { onConflict: 'id' })
-    if (error) throw error
+    if (error) throw toError(error)
   }
 
   if (notes.length) {
     const rows = notes.map(n => dayNoteToRow(n, userId))
     const { error } = await supabase.from('day_notes').upsert(rows, { onConflict: 'id' })
-    if (error) throw error
+    if (error) throw toError(error)
   }
 }
 
@@ -375,12 +391,12 @@ async function pullSince(userId: string, since: number): Promise<number> {
     supabase.from('day_notes').select('*').eq('user_id', userId).gt('updated_at', since),
   ])
 
-  if (projRes.error) throw projRes.error
-  if (pomRes.error) throw pomRes.error
-  if (taskRes.error) throw taskRes.error
-  if (tmplRes.error) throw tmplRes.error
-  if (shutRes.error) throw shutRes.error
-  if (noteRes.error) throw noteRes.error
+  if (projRes.error) throw toError(projRes.error)
+  if (pomRes.error) throw toError(pomRes.error)
+  if (taskRes.error) throw toError(taskRes.error)
+  if (tmplRes.error) throw toError(tmplRes.error)
+  if (shutRes.error) throw toError(shutRes.error)
+  if (noteRes.error) throw toError(noteRes.error)
 
   let maxUpdated = since
 
