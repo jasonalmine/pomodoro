@@ -58,6 +58,7 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 - [x] Tags per session: free-form labels (`deep`, `admin`, `meeting`…) captured in the reflection panel with recent-tag chips. Stored as `tags text[]` in Supabase. AI weekly review prompt includes tag totals so it can spot tag-level patterns.
 - [x] Per-day notes journal: free-form scratchpad note per calendar day, separate from per-session reflections and day-shutdowns. Auto-saves on debounce + blur. New `day_notes` table syncs via Supabase.
 - [x] Onboarding empty state: soft welcome card on the idle Timer screen for first-time visitors (zero pomodoros), dismissable. Disappears naturally after the first saved session.
+- [x] Edit past sessions: click any session card in Insights → Today timeline or the Calendar day view to open a full edit modal — project, linked task, task text, date/start/duration, distractions, tags, reflection notes, completed flag. Delete also fans out to Supabase (best-effort; cross-device delete-tombstones tracked as a follow-up).
 
 ## QA gaps to verify
 

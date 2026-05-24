@@ -487,6 +487,22 @@ async function pullSince(userId: string, since: number): Promise<number> {
   return maxUpdated
 }
 
+// Hard-delete a Pomodoro everywhere we can reach. Local Dexie row is removed
+// first (so the UI updates immediately even when offline); remote deletion is
+// best-effort and only attempted when signed in. NOTE: a second signed-in
+// device that already cached this row will still have it locally — sync pull
+// only fetches *new* updates and has no tombstone to learn from deletions.
+// Proper cross-device delete needs soft-delete with a deletedAt column; for
+// now this is best-effort consistency on the device doing the delete.
+export async function deletePomodoroEverywhere(id: string): Promise<void> {
+  await db.pomodoros.delete(id)
+  if (!supabase) return
+  const user = await getCurrentUser()
+  if (!user) return
+  const { error } = await supabase.from('pomodoros').delete().eq('id', id).eq('user_id', user.id)
+  if (error) throw toError(error)
+}
+
 export async function syncNow(): Promise<void> {
   if (!supabaseEnabled || syncing) return
   const user = await getCurrentUser()

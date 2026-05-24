@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, isToday } from 'date-fns'
-import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { db } from '../db'
 import { fmtClock, fmtDuration } from '../lib/format'
 import { ProjectChip } from '../components/ProjectChip'
 import { Button } from '../components/Button'
 import { CalendarDaySchedule, CalendarWeekSchedule } from '../components/CalendarSchedule'
+import { SessionEditPanel } from '../components/SessionEditPanel'
 import type { Pomodoro, Project } from '../types'
 
 type Mode = 'month' | 'week' | 'day'
@@ -148,7 +149,7 @@ export function CalendarView() {
       )}
 
       {selectedSession && (
-        <SessionDetailCard session={selectedSession} project={projectMap.get(selectedSession.projectId)} onClose={() => setSelectedSessionId(null)} />
+        <SessionEditPanel pomodoroId={selectedSession.id} onClose={() => setSelectedSessionId(null)} />
       )}
 
       {mode === 'month' && selected && (
@@ -244,44 +245,10 @@ function MonthGrid({
   )
 }
 
-function SessionDetailCard({ session, project, onClose }: { session: Pomodoro; project?: Project; onClose: () => void }) {
-  const [note, setNote] = useState(session.note ?? '')
-  return (
-    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            {project && <ProjectChip project={project} />}
-            <span className="text-xs tabular text-ink-500">{fmtClock(session.startedAt)} – {fmtClock(session.endedAt)}</span>
-            <span className="text-xs tabular text-ink-500">· {fmtDuration(session.actualSeconds)}</span>
-            {!session.completed && <span className="text-[10px] uppercase tracking-wider text-rose-500">aborted</span>}
-          </div>
-          <div className="text-base text-ink-900 dark:text-ink-50 mt-1.5">{session.task || 'Focus session'}</div>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
-      </div>
-      <textarea
-        value={note} onChange={e => setNote(e.target.value)}
-        placeholder="Add a reflection..."
-        rows={3}
-        className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none"
-      />
-      <div className="flex gap-2 justify-end">
-        <Button variant="ghost" size="sm" onClick={async () => {
-          if (!confirm('Delete this Pomodoro?')) return
-          await db.pomodoros.delete(session.id)
-          onClose()
-        }}><Trash2 size={14} className="text-rose-500" /></Button>
-        <Button size="sm" onClick={() => db.pomodoros.update(session.id, { note: note.trim() || undefined })}>Save</Button>
-      </div>
-    </div>
-  )
-}
-
 function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodoro[]; projects: Map<string, Project> }) {
   const sorted = useMemo(() => [...pomodoros].sort((a, b) => a.startedAt - b.startedAt), [pomodoros])
   const totalMin = sorted.reduce((a, p) => a + p.actualSeconds, 0) / 60
-  const [open, setOpen] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   return (
     <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
@@ -299,61 +266,28 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
             const project = projects.get(p.projectId)
             return (
               <li key={p.id} className="rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
-                <button onClick={() => setOpen(open === p.id ? null : p.id)} className="w-full text-left p-3 flex items-center gap-3 hover:bg-ink-50 dark:hover:bg-ink-800 transition">
+                <button onClick={() => setEditingId(p.id)} className="w-full text-left p-3 flex items-center gap-3 hover:bg-ink-50 dark:hover:bg-ink-800 transition" title="Click to edit">
                   <div className="w-1 self-stretch rounded-full" style={{ backgroundColor: project?.color ?? '#ff6a37' }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {project && <ProjectChip project={project} />}
                       <span className="text-xs text-ink-500 tabular">{fmtClock(p.startedAt)} · {fmtDuration(p.actualSeconds)}</span>
                       {!p.completed && <span className="text-[10px] uppercase tracking-wider text-rose-500">aborted</span>}
+                      {p.flowMode && <span className="text-[10px] uppercase tracking-wider text-accent">flow</span>}
+                      {p.manual && <span className="text-[10px] uppercase tracking-wider text-ink-400">manual</span>}
                     </div>
                     <div className="text-sm text-ink-800 dark:text-ink-100 truncate mt-1">{p.task}</div>
                   </div>
                 </button>
-                {open === p.id && (
-                  <PomodoroDetail pom={p} />
-                )}
               </li>
             )
           })}
         </ol>
       )}
+      {editingId && (
+        <SessionEditPanel pomodoroId={editingId} onClose={() => setEditingId(null)} />
+      )}
     </div>
   )
 }
 
-function PomodoroDetail({ pom }: { pom: Pomodoro }) {
-  const [note, setNote] = useState(pom.note ?? '')
-  return (
-    <div className="border-t border-ink-200 dark:border-ink-800 p-4 space-y-3 bg-ink-50 dark:bg-ink-950/40">
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <Stat label="Started" value={fmtClock(pom.startedAt)} />
-        <Stat label="Ended" value={fmtClock(pom.endedAt)} />
-        <Stat label="Planned" value={fmtDuration(pom.plannedSeconds)} />
-        <Stat label="Actual" value={fmtDuration(pom.actualSeconds)} />
-      </div>
-      <textarea
-        value={note} onChange={e => setNote(e.target.value)}
-        placeholder="Add a reflection..."
-        rows={3}
-        className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none"
-      />
-      <div className="flex gap-2 justify-end">
-        <Button variant="ghost" size="sm" onClick={async () => {
-          if (!confirm('Delete this Pomodoro?')) return
-          await db.pomodoros.delete(pom.id)
-        }}><Trash2 size={14} className="text-rose-500" /></Button>
-        <Button size="sm" onClick={() => db.pomodoros.update(pom.id, { note: note.trim() || undefined })}>Save</Button>
-      </div>
-    </div>
-  )
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-ink-400 uppercase tracking-wider">{label}</div>
-      <div className="text-ink-800 dark:text-ink-100 tabular mt-0.5">{value}</div>
-    </div>
-  )
-}
