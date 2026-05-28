@@ -9,7 +9,7 @@ const DISMISSED_KEY = 'pomodoro.welcomeDismissed'
 // have been logged AND the user hasn't dismissed it. Disappears naturally
 // after the first saved session.
 export function WelcomeCard() {
-  const pomCount = useLiveQuery(() => db.pomodoros.count(), [], 0)
+  const pomCount = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).count(), [], 0)
   const [dismissed, setDismissed] = useState<boolean>(() => {
     try { return localStorage.getItem(DISMISSED_KEY) === '1' } catch { return false }
   })
@@ -40,7 +40,7 @@ export function WelcomeCard() {
         A focus timer with room to reflect.
       </h2>
       <p className="text-sm text-ink-600 dark:text-ink-300 leading-relaxed">
-        Pick a project, name what you're working on, breathe in for a moment, then start. After each session you'll have a chance to capture what you finished and what's next — that's where the real value compounds.
+        Pick a project, name what you're working on, take a few breaths, then start. After each session you'll have a chance to capture what you finished and what's next. That's where the real value compounds.
       </p>
       <p className="text-xs text-ink-500 pt-1">
         Everything lives in your browser. Optional cloud sync, AI weekly review, and an "Add to Home Screen" install are all in <a href="/settings" className="underline decoration-dotted hover:text-ink-800 dark:hover:text-ink-100">Settings</a>.

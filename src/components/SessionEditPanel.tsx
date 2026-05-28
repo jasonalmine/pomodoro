@@ -19,8 +19,8 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
     () => (allProjects ?? []).filter(p => !p.archived),
     [allProjects],
   )
-  const allTasks = useLiveQuery(() => db.tasks.toArray(), [], [])
-  const allPoms = useLiveQuery(() => db.pomodoros.toArray(), [], [])
+  const allTasks = useLiveQuery(() => db.tasks.filter(t => !t.deletedAt).toArray(), [], [])
+  const allPoms = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).toArray(), [], [])
 
   const [projectId, setProjectId] = useState('')
   const [taskId, setTaskId] = useState<string | null>(null)

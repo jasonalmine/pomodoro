@@ -17,11 +17,16 @@ export function DailyTimeline({ pomodoros, projects }: { pomodoros: Pomodoro[]; 
     )
   }
 
-  // Compute "intra-day" position as % of the 24h window for the left rail dot.
+  // Compute "intra-day" position as % of the local-day window for the left
+  // rail dot. We measure against the actual ms between local midnight and the
+  // next local midnight so DST-transition days (23h or 25h) report a sensible
+  // percentage instead of clipping above/below the natural range.
   const dayStart = new Date(sorted[0].startedAt)
   dayStart.setHours(0, 0, 0, 0)
+  const nextMidnight = new Date(dayStart)
+  nextMidnight.setDate(nextMidnight.getDate() + 1)
   const dayStartMs = dayStart.getTime()
-  const DAY_MS = 24 * 60 * 60 * 1000
+  const dayLengthMs = Math.max(1, nextMidnight.getTime() - dayStartMs)
 
   return (
     <>
@@ -30,7 +35,7 @@ export function DailyTimeline({ pomodoros, projects }: { pomodoros: Pomodoro[]; 
         {sorted.map(p => {
           const project = projectMap.get(p.projectId)
           const color = project?.color ?? '#ff6a37'
-          const topPct = ((p.startedAt - dayStartMs) / DAY_MS) * 100
+          const topPct = ((p.startedAt - dayStartMs) / dayLengthMs) * 100
           return (
             <li key={p.id} className="relative pl-6">
               <span

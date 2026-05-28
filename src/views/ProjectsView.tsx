@@ -1,11 +1,30 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Archive, ArchiveRestore, ChevronDown, ChevronRight, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Archive, ArchiveRestore, ChevronDown, ChevronRight, GripVertical, ListTodo, Pencil, Plus, Trash2 } from 'lucide-react'
 import { subDays } from 'date-fns'
+import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { db, PROJECT_COLORS } from '../db'
 import { Button } from '../components/Button'
+import { TaskDetailPanel } from '../components/TaskDetailPanel'
 import { fmtDuration } from '../lib/format'
 import { pomodorosByTask } from '../lib/stats'
+import { deleteTaskEverywhere } from '../lib/sync'
 import type { Pomodoro, Project, Task } from '../types'
 
 type Totals = { allTime: number; last30: number; count: number }
@@ -25,8 +44,8 @@ function buildTotals(pomodoros: Pomodoro[]): Map<string, Totals> {
 
 export function ProjectsView() {
   const projects = useLiveQuery(() => db.projects.orderBy('createdAt').reverse().toArray(), [], [])
-  const pomodoros = useLiveQuery(() => db.pomodoros.toArray(), [], [])
-  const tasks = useLiveQuery(() => db.tasks.orderBy('createdAt').toArray(), [], [])
+  const pomodoros = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).toArray(), [], [])
+  const tasks = useLiveQuery(() => db.tasks.orderBy('createdAt').filter(t => !t.deletedAt).toArray(), [], [])
   const totals = useMemo(() => buildTotals(pomodoros ?? []), [pomodoros])
   const taskCounts = useMemo(() => pomodorosByTask(pomodoros ?? []), [pomodoros])
   const tasksByProject = useMemo(() => {
@@ -42,6 +61,7 @@ export function ProjectsView() {
   const [editing, setEditing] = useState<Project | null>(null)
   const [creating, setCreating] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null)
 
   return (
     <div className="mx-auto w-full max-w-2xl p-4 sm:p-6 space-y-6">
@@ -120,33 +140,69 @@ export function ProjectsView() {
                 </Button>
               </div>
               {isExpanded && (
-                <TaskList projectId={p.id} tasks={projectTasks} counts={taskCounts} />
+                <TaskList
+                  projectId={p.id}
+                  tasks={projectTasks}
+                  counts={taskCounts}
+                  onOpenTask={setDetailTaskId}
+                />
               )}
             </div>
           )
         })}
       </div>
+      {detailTaskId && (
+        <TaskDetailPanel taskId={detailTaskId} onClose={() => setDetailTaskId(null)} />
+      )}
     </div>
   )
 }
 
-function TaskList({ projectId, tasks, counts }: { projectId: string; tasks: Task[]; counts: Map<string, number> }) {
+function TaskList({ projectId, tasks, counts, onOpenTask }: { projectId: string; tasks: Task[]; counts: Map<string, number>; onOpenTask: (id: string) => void }) {
   const [draft, setDraft] = useState('')
   const [draftEst, setDraftEst] = useState(1)
-  const open = tasks.filter(t => !t.completed)
-  const done = tasks.filter(t => t.completed)
+  const open = useMemo(() => tasks.filter(t => !t.completed).sort((a, b) => a.order - b.order), [tasks])
+  const done = useMemo(() => tasks.filter(t => t.completed), [tasks])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    const fromIdx = open.findIndex(t => t.id === active.id)
+    const toIdx = open.findIndex(t => t.id === over.id)
+    if (fromIdx < 0 || toIdx < 0) return
+    const reordered = arrayMove(open, fromIdx, toIdx)
+    // Full re-sequence: assign evenly-spaced integers so future fractional
+    // inserts have room without colliding. Bump updatedAt for sync.
+    const now = Date.now()
+    await db.transaction('rw', db.tasks, async () => {
+      for (let i = 0; i < reordered.length; i++) {
+        const t = reordered[i]
+        const nextOrder = (i + 1) * 1000
+        if (t.order !== nextOrder) {
+          await db.tasks.update(t.id, { order: nextOrder, updatedAt: now })
+        }
+      }
+    })
+  }
 
   const addTask = async () => {
     const name = draft.trim()
     if (!name) return
     const now = Date.now()
+    // Append to the end of the open list.
+    const lastOrder = open.length ? open[open.length - 1].order : 0
     await db.tasks.put({
       id: crypto.randomUUID(),
       projectId,
       name,
       estPomodoros: Math.max(1, Math.min(20, draftEst)),
       completed: false,
-      order: now,
+      order: lastOrder + 1000,
       createdAt: now,
       updatedAt: now,
     })
@@ -160,9 +216,13 @@ function TaskList({ projectId, tasks, counts }: { projectId: string; tasks: Task
         <p className="text-xs text-ink-500">No tasks yet. Plan a few below.</p>
       )}
       {open.length > 0 && (
-        <ul className="space-y-1">
-          {open.map(t => <TaskRow key={t.id} task={t} count={counts.get(t.id) ?? 0} />)}
-        </ul>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <SortableContext items={open.map(t => t.id)} strategy={verticalListSortingStrategy}>
+            <ul className="space-y-1">
+              {open.map(t => <SortableTaskRow key={t.id} task={t} count={counts.get(t.id) ?? 0} onOpen={onOpenTask} />)}
+            </ul>
+          </SortableContext>
+        </DndContext>
       )}
       {done.length > 0 && (
         <details className="text-xs text-ink-500">
@@ -170,7 +230,7 @@ function TaskList({ projectId, tasks, counts }: { projectId: string; tasks: Task
             {done.length} done
           </summary>
           <ul className="space-y-1 mt-1">
-            {done.map(t => <TaskRow key={t.id} task={t} count={counts.get(t.id) ?? 0} />)}
+            {done.map(t => <TaskRow key={t.id} task={t} count={counts.get(t.id) ?? 0} onOpen={onOpenTask} />)}
           </ul>
         </details>
       )}
@@ -203,7 +263,33 @@ function TaskList({ projectId, tasks, counts }: { projectId: string; tasks: Task
   )
 }
 
-function TaskRow({ task, count }: { task: Task; count: number }) {
+function SortableTaskRow({ task, count, onOpen }: { task: Task; count: number; onOpen: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  const handle = (
+    <button
+      type="button"
+      {...attributes}
+      {...listeners}
+      className="text-ink-300 hover:text-ink-600 dark:hover:text-ink-200 cursor-grab active:cursor-grabbing touch-none shrink-0"
+      aria-label="Drag to reorder"
+      title="Drag to reorder"
+    >
+      <GripVertical size={14} />
+    </button>
+  )
+  return (
+    <div ref={setNodeRef} style={style}>
+      <TaskRow task={task} count={count} handle={handle} onOpen={onOpen} />
+    </div>
+  )
+}
+
+function TaskRow({ task, count, handle, onOpen }: { task: Task; count: number; handle?: React.ReactNode; onOpen: (id: string) => void }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(task.name)
   const [est, setEst] = useState(task.estPomodoros)
@@ -230,12 +316,13 @@ function TaskRow({ task, count }: { task: Task; count: number }) {
 
   const remove = async () => {
     if (!confirm(`Delete task "${task.name}"?`)) return
-    await db.tasks.delete(task.id)
+    await deleteTaskEverywhere(task.id)
   }
 
   if (editing) {
     return (
       <li className="flex items-center gap-2 py-1">
+        {handle}
         <input
           value={name}
           onChange={e => setName(e.target.value)}
@@ -258,6 +345,7 @@ function TaskRow({ task, count }: { task: Task; count: number }) {
 
   return (
     <li className="flex items-center gap-2 py-1 group">
+      {handle}
       <button
         type="button"
         onClick={toggleComplete}
@@ -272,9 +360,10 @@ function TaskRow({ task, count }: { task: Task; count: number }) {
       </button>
       <button
         type="button"
+        onClick={() => onOpen(task.id)}
         onDoubleClick={() => setEditing(true)}
         className={`flex-1 text-left text-sm truncate transition ${task.completed ? 'line-through text-ink-400' : 'text-ink-800 dark:text-ink-100 hover:text-accent'}`}
-        title="Double-click to edit"
+        title="Click to open · double-click to rename"
       >
         {task.name}
       </button>
@@ -305,16 +394,23 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
   const [name, setName] = useState(initial?.name ?? '')
   const [color, setColor] = useState(initial?.color ?? PROJECT_COLORS[0])
   const [description, setDescription] = useState(initial?.description ?? '')
+  // Goal is entered in hours per week. Empty = no goal.
+  const [goalHours, setGoalHours] = useState(
+    initial?.weeklyGoalSeconds ? String(+(initial.weeklyGoalSeconds / 3600).toFixed(2)) : '',
+  )
 
   const save = () => {
     if (!name.trim()) return
     const now = Date.now()
+    const hours = parseFloat(goalHours)
+    const weeklyGoalSeconds = Number.isFinite(hours) && hours > 0 ? Math.round(hours * 3600) : undefined
     onSave({
       id: initial?.id ?? crypto.randomUUID(),
       name: name.trim(),
       color,
       description: description.trim() || undefined,
       archived: initial?.archived ?? false,
+      weeklyGoalSeconds,
       createdAt: initial?.createdAt ?? now,
       updatedAt: now,
     })
@@ -330,6 +426,18 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
         value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional description"
         className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
       />
+      <label className="block space-y-1.5">
+        <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Weekly goal (hours)</span>
+        <input
+          type="number"
+          min={0}
+          step={0.5}
+          value={goalHours}
+          onChange={e => setGoalHours(e.target.value)}
+          placeholder="Leave blank for no goal"
+          className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+        />
+      </label>
       <div className="flex flex-wrap gap-2">
         {PROJECT_COLORS.map(c => (
           <button

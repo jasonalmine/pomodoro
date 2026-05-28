@@ -68,14 +68,17 @@ export function TimerView() {
 
   const today = todayBounds()
   const todaysPoms = useLiveQuery(
-    () => db.pomodoros.where('startedAt').between(today.start, today.end, true, true).toArray(),
+    () => db.pomodoros
+      .where('startedAt').between(today.start, today.end, true, true)
+      .filter(p => !p.deletedAt)
+      .toArray(),
     [today.start, today.end],
     [],
   )
   const todayCount = useMemo(() => totalsInWindow(todaysPoms ?? [], today.start, today.end).count, [todaysPoms, today.start, today.end])
 
   const recent = useLiveQuery(
-    () => db.pomodoros.orderBy('startedAt').reverse().limit(30).toArray(),
+    () => db.pomodoros.orderBy('startedAt').reverse().filter(p => !p.deletedAt).limit(30).toArray(),
     [],
     [],
   )
@@ -83,8 +86,8 @@ export function TimerView() {
   const lastSession = useMemo(() => (recent ?? [])[0] ?? null, [recent])
 
   const templates = useLiveQuery(() => db.templates.orderBy('createdAt').toArray(), [], [])
-  const allTasks = useLiveQuery(() => db.tasks.toArray(), [], [])
-  const allPoms = useLiveQuery(() => db.pomodoros.toArray(), [], [])
+  const allTasks = useLiveQuery(() => db.tasks.filter(t => !t.deletedAt).toArray(), [], [])
+  const allPoms = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).toArray(), [], [])
   const taskCounts = useMemo(() => pomodorosByTask(allPoms ?? []), [allPoms])
 
   const yesterdayKey = format(subDays(new Date(), 1), 'yyyy-MM-dd')
@@ -445,7 +448,7 @@ export function TimerView() {
     ? `Time for a ${phase === 'longBreak' ? 'long' : 'short'} break`
     : isBreakPhase
       ? `On a ${phase === 'longBreak' ? 'long' : 'short'} break`
-      : (planTask || (phase === 'work' ? 'Focus session' : phase === 'flow' ? 'Flow session' : phase === 'breathing' ? 'Breathe' : phase === 'meditation' ? 'Sit' : ''))
+      : (planTask || (phase === 'work' ? 'Focus session' : phase === 'flow' ? 'Flow session' : phase === 'breathing' ? 'Breathe' : ''))
 
   return (
     <div className="mx-auto w-full max-w-2xl min-h-screen p-4 sm:p-8 flex flex-col items-center justify-center text-center gap-8 relative">
@@ -512,7 +515,6 @@ export function TimerView() {
         <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">
           {phase === 'work' && <>Pomodoro {workCount + 1} · {fmtDuration(phaseDurationSec)} planned</>}
           {phase === 'flow' && <>Flow · counting up</>}
-          {phase === 'meditation' && <>Sit · {fmtDuration(phaseDurationSec)}</>}
           {isBreakPhase && !queuedBreak && <>{breakLabel} · {fmtDuration(phaseDurationSec)}</>}
         </div>
       )}
@@ -844,7 +846,7 @@ function ReflectionPanel() {
   const pom = useLiveQuery(async () => (lastId ? await db.pomodoros.get(lastId) : undefined), [lastId])
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const project = pom ? (projects ?? []).find(p => p.id === pom.projectId) : null
-  const allPoms = useLiveQuery(() => db.pomodoros.toArray(), [], [])
+  const allPoms = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).toArray(), [], [])
   const recentTagOptions = useMemo(
     () => recentTags(allPoms ?? [], 8).filter(t => !tags.includes(t)),
     [allPoms, tags],
@@ -854,7 +856,9 @@ function ReflectionPanel() {
     [pom?.taskId],
   )
   const linkedTaskCount = useLiveQuery(
-    async () => (pom?.taskId ? await db.pomodoros.where('taskId').equals(pom.taskId).count() : 0),
+    async () => (pom?.taskId
+      ? await db.pomodoros.where('taskId').equals(pom.taskId).filter(p => !p.deletedAt).count()
+      : 0),
     [pom?.taskId],
   ) ?? 0
 

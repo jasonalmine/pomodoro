@@ -11,7 +11,7 @@ import type { Pomodoro, Project } from '../types'
 export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const activeProjects: Project[] = useMemo(() => (projects ?? []).filter(p => !p.archived), [projects])
-  const recent = useLiveQuery(() => db.pomodoros.orderBy('startedAt').reverse().limit(30).toArray(), [], [])
+  const recent = useLiveQuery(() => db.pomodoros.orderBy('startedAt').reverse().filter(p => !p.deletedAt).limit(30).toArray(), [], [])
   const recentChips = useMemo(() => recentTasks(recent ?? [], 4), [recent])
 
   const [projectId, setProjectId] = useState('')

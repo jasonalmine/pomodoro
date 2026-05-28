@@ -27,13 +27,17 @@ import { Button } from '../components/Button'
 import { Plus } from 'lucide-react'
 import { currentWeekKey, generateWeeklyReview, resolvedModel } from '../lib/ai'
 import { MarkdownLite } from '../components/MarkdownLite'
-import type { Pomodoro, WeeklyReview } from '../types'
+import type { Pomodoro, Project, WeeklyReview } from '../types'
 
 type ViewMode = 'today' | 'week' | 'lifetime' | 'year'
 
 export function InsightsView() {
   const settings = useSettings()
-  const pomodoros = useLiveQuery(() => db.pomodoros.orderBy('startedAt').toArray(), [], [])
+  const pomodoros = useLiveQuery(
+    () => db.pomodoros.orderBy('startedAt').filter(p => !p.deletedAt).toArray(),
+    [],
+    [],
+  )
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const poms = pomodoros ?? []
   const projs = projects ?? []
@@ -140,6 +144,7 @@ export function InsightsView() {
           </section>
 
           <ProjectsSection totals={last30} title="By project" subtitle="Last 30 days" />
+          <ProjectWeeklyGoals projects={projs} weekPoms={weekPoms} />
           <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
 
           <DayNoteCard now={now} />
@@ -270,7 +275,7 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
   const hasKey = !!apiKey
   const weekKey = useMemo(() => currentWeekKey(weekStart), [weekStart])
   const cached = useLiveQuery(() => db.weeklyReviews.get(weekKey), [weekKey])
-  const tasks = useLiveQuery(() => db.tasks.toArray(), [], [])
+  const tasks = useLiveQuery(() => db.tasks.filter(t => !t.deletedAt).toArray(), [], [])
   const projects = useLiveQuery(() => db.projects.toArray(), [], [])
   const shutdowns = useLiveQuery(() => db.dayShutdowns.toArray(), [], [])
   const [busy, setBusy] = useState(false)
@@ -349,6 +354,56 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
       {!cached && !error && weekPoms.length === 0 && (
         <p className="text-xs text-ink-500">No sessions logged this week yet — nothing to review.</p>
       )}
+    </section>
+  )
+}
+
+function ProjectWeeklyGoals({ projects, weekPoms }: { projects: Project[]; weekPoms: Pomodoro[] }) {
+  const goaled = useMemo(() => projects.filter(p => !p.archived && p.weeklyGoalSeconds && p.weeklyGoalSeconds > 0), [projects])
+  const totalsByProject = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const p of weekPoms) {
+      m.set(p.projectId, (m.get(p.projectId) ?? 0) + p.actualSeconds)
+    }
+    return m
+  }, [weekPoms])
+
+  if (goaled.length === 0) return null
+
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div className="flex items-baseline justify-between">
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Weekly goals</h2>
+        <span className="text-xs text-ink-500">This week (Mon-Sun)</span>
+      </div>
+      <ol className="space-y-3">
+        {goaled.map(p => {
+          const goal = p.weeklyGoalSeconds ?? 0
+          const done = totalsByProject.get(p.id) ?? 0
+          const pct = Math.min(100, (done / goal) * 100)
+          const hit = done >= goal
+          return (
+            <li key={p.id} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
+                  <span className="font-medium truncate text-ink-800 dark:text-ink-100">{p.name}</span>
+                </div>
+                <div className="tabular text-ink-500 shrink-0">
+                  <span className={hit ? 'text-emerald-600 dark:text-emerald-400 font-medium' : ''}>{fmtDuration(done)}</span>
+                  <span className="text-ink-400"> / {fmtDuration(goal)}</span>
+                </div>
+              </div>
+              <div className="h-2 rounded-full bg-ink-100 dark:bg-ink-800 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${pct}%`, backgroundColor: p.color, transition: 'width 400ms ease-out' }}
+                />
+              </div>
+            </li>
+          )
+        })}
+      </ol>
     </section>
   )
 }

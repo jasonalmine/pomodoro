@@ -1,7 +1,6 @@
 export type Phase =
   | 'idle'
   | 'breathing'
-  | 'meditation'
   | 'work'
   | 'flow'
   | 'shortBreak'
@@ -21,7 +20,6 @@ export type RitualConfig = {
   enabled: boolean
   patternId: string
   cycles: number
-  meditationSeconds: number
   breathCues: boolean
 }
 
@@ -87,6 +85,8 @@ export type Project = {
   color: string
   description?: string
   archived: boolean
+  // Weekly Pomodoro goal expressed in seconds. Undefined / 0 means no goal.
+  weeklyGoalSeconds?: number
   createdAt: number
   updatedAt: number
 }
@@ -109,6 +109,9 @@ export type Pomodoro = {
   noteDone?: string
   noteNext?: string
   ritualUsed: boolean
+  // Soft-delete tombstone (ms). When set, the row is hidden from every read
+  // surface but kept in storage so the tombstone can propagate across devices.
+  deletedAt?: number
   updatedAt: number
 }
 
@@ -120,6 +123,8 @@ export type Task = {
   completed: boolean
   completedAt?: number
   archivedAt?: number
+  // Soft-delete tombstone (ms). See Pomodoro.deletedAt.
+  deletedAt?: number
   order: number
   createdAt: number
   updatedAt: number

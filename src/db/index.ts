@@ -94,6 +94,19 @@ class PomodoroDB extends Dexie {
         weeklyReviews: 'id, weekStart, createdAt, updatedAt',
         dayNotes: 'id, date, updatedAt',
       })
+    // v9: adds optional weeklyGoalSeconds on projects + deletedAt tombstones
+    // on pomodoros and tasks. No new indexes required for either.
+    this.version(9)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+        templates: 'id, name, createdAt, updatedAt',
+        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
+        dayShutdowns: 'id, date, updatedAt',
+        weeklyReviews: 'id, weekStart, createdAt, updatedAt',
+        dayNotes: 'id, date, updatedAt',
+      })
   }
 }
 
@@ -126,7 +139,6 @@ export const DEFAULT_SETTINGS: Settings = {
     enabled: true,
     patternId: 'box',
     cycles: 4,
-    meditationSeconds: 60,
     breathCues: true,
   },
   audio: {

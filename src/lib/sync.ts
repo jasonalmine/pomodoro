@@ -15,6 +15,7 @@ type ProjectRow = {
   color: string | null
   description: string | null
   archived: boolean
+  weekly_goal_seconds: number | null
   created_at: number
   updated_at: number
 }
@@ -38,6 +39,7 @@ type PomodoroRow = {
   note_done: string | null
   note_next: string | null
   ritual_used: boolean | null
+  deleted_at: number | null
   updated_at: number
 }
 
@@ -50,6 +52,7 @@ type TaskRow = {
   completed: boolean
   completed_at: number | null
   archived_at: number | null
+  deleted_at: number | null
   order: number
   created_at: number
   updated_at: number
@@ -98,6 +101,7 @@ function projectToRow(p: Project, userId: string): ProjectRow {
     color: p.color,
     description: p.description ?? null,
     archived: p.archived,
+    weekly_goal_seconds: p.weeklyGoalSeconds && p.weeklyGoalSeconds > 0 ? p.weeklyGoalSeconds : null,
     created_at: p.createdAt,
     updated_at: p.updatedAt,
   }
@@ -110,6 +114,7 @@ function rowToProject(r: ProjectRow): Project {
     color: r.color ?? '#ff6a37',
     description: r.description ?? undefined,
     archived: r.archived,
+    weeklyGoalSeconds: r.weekly_goal_seconds ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }
@@ -135,6 +140,7 @@ function pomodoroToRow(p: Pomodoro, userId: string): PomodoroRow {
     note_done: p.noteDone ?? null,
     note_next: p.noteNext ?? null,
     ritual_used: p.ritualUsed,
+    deleted_at: p.deletedAt ?? null,
     updated_at: p.updatedAt,
   }
 }
@@ -158,6 +164,7 @@ function rowToPomodoro(r: PomodoroRow): Pomodoro {
     noteDone: r.note_done ?? undefined,
     noteNext: r.note_next ?? undefined,
     ritualUsed: r.ritual_used ?? false,
+    deletedAt: r.deleted_at ?? undefined,
     updatedAt: r.updated_at,
   }
 }
@@ -172,6 +179,7 @@ function taskToRow(t: Task, userId: string): TaskRow {
     completed: t.completed,
     completed_at: t.completedAt ?? null,
     archived_at: t.archivedAt ?? null,
+    deleted_at: t.deletedAt ?? null,
     order: t.order,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
@@ -187,6 +195,7 @@ function rowToTask(r: TaskRow): Task {
     completed: r.completed,
     completedAt: r.completed_at ?? undefined,
     archivedAt: r.archived_at ?? undefined,
+    deletedAt: r.deleted_at ?? undefined,
     order: r.order,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
@@ -487,19 +496,34 @@ async function pullSince(userId: string, since: number): Promise<number> {
   return maxUpdated
 }
 
-// Hard-delete a Pomodoro everywhere we can reach. Local Dexie row is removed
-// first (so the UI updates immediately even when offline); remote deletion is
-// best-effort and only attempted when signed in. NOTE: a second signed-in
-// device that already cached this row will still have it locally — sync pull
-// only fetches *new* updates and has no tombstone to learn from deletions.
-// Proper cross-device delete needs soft-delete with a deletedAt column; for
-// now this is best-effort consistency on the device doing the delete.
+// Soft-delete a Pomodoro everywhere. Sets `deletedAt` + bumps `updatedAt`
+// locally so the UI updates immediately and the normal sync push picks the
+// tombstone up; reading code treats `deletedAt != null` as gone. Other
+// signed-in devices learn about the deletion on their next pull.
 export async function deletePomodoroEverywhere(id: string): Promise<void> {
-  await db.pomodoros.delete(id)
+  const now = Date.now()
+  await db.pomodoros.update(id, { deletedAt: now, updatedAt: now })
+  // Best-effort immediate push of just this row so the deletion isn't
+  // stuck behind the next sync cycle.
   if (!supabase) return
   const user = await getCurrentUser()
   if (!user) return
-  const { error } = await supabase.from('pomodoros').delete().eq('id', id).eq('user_id', user.id)
+  const local = await db.pomodoros.get(id)
+  if (!local) return
+  const { error } = await supabase.from('pomodoros').upsert(pomodoroToRow(local, user.id), { onConflict: 'id' })
+  if (error) throw toError(error)
+}
+
+// Soft-delete a Task. Mirrors deletePomodoroEverywhere.
+export async function deleteTaskEverywhere(id: string): Promise<void> {
+  const now = Date.now()
+  await db.tasks.update(id, { deletedAt: now, updatedAt: now })
+  if (!supabase) return
+  const user = await getCurrentUser()
+  if (!user) return
+  const local = await db.tasks.get(id)
+  if (!local) return
+  const { error } = await supabase.from('tasks').upsert(taskToRow(local, user.id), { onConflict: 'id' })
   if (error) throw toError(error)
 }
 

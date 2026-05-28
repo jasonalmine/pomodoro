@@ -10,7 +10,6 @@ function phaseLabel(phase: string): string {
     case 'shortBreak': return 'Short break'
     case 'longBreak': return 'Long break'
     case 'breathing': return 'Breathe'
-    case 'meditation': return 'Sit'
     case 'reflect': return 'Reflect'
     default: return 'Pomodoro'
   }

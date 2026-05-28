@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PWA install + offline; mid-session task switcher; multi-provider AI review; Supabase CLI migrations)
+Last updated: 2026-05-28 (Per-project goals, per-task drill-in, drag-reorder tasks, cross-device delete tombstones, DST verified, meditation phase removed)
 
 ---
 
@@ -59,6 +59,11 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 - [x] Per-day notes journal: free-form scratchpad note per calendar day, separate from per-session reflections and day-shutdowns. Auto-saves on debounce + blur. New `day_notes` table syncs via Supabase.
 - [x] Onboarding empty state: soft welcome card on the idle Timer screen for first-time visitors (zero pomodoros), dismissable. Disappears naturally after the first saved session.
 - [x] Edit past sessions: click any session card in Insights → Today timeline or the Calendar day view to open a full edit modal — project, linked task, task text, date/start/duration, distractions, tags, reflection notes, completed flag. Delete also fans out to Supabase (best-effort; cross-device delete-tombstones tracked as a follow-up).
+- [x] Cross-device delete tombstones: `deletedAt` column on pomodoros + tasks (Dexie v9, Supabase migration). Deleting a session or task on device A propagates to device B via the normal sync pull. All read sites filter out tombstoned rows. Hard-delete is replaced by `update(id, { deletedAt, updatedAt })` so the row survives long enough to teach the other devices.
+- [x] Per-project weekly goals: optional `weeklyGoalSeconds` per Project (Dexie v9, Supabase migration). Set hours/week in the project edit form; Insights → Today renders a small "Weekly goals" section with horizontal progress bars (ISO Mon-Sun). Hides itself when no projects have goals set.
+- [x] Per-task drill-in / detail view: new `TaskDetailPanel` modal opens from clicking a task name in the Projects view. Shows project chip, est/done counts, total focus time, all linked sessions (newest first, click to open SessionEditPanel), and a Mark complete / Reopen action.
+- [x] Drag-reorder tasks: dnd-kit-powered grip handle on each open task in the Projects view. Reordering re-sequences `order` (evenly-spaced multiples of 1000), bumps `updatedAt`, syncs via the existing tasks push path. Keyboard accessible.
+- [x] Remove meditation phase from the ritual. Breathing flows straight into focus. `meditationSeconds` is dropped from the Settings type and SettingsView; existing rows can keep the column.
 
 ## QA gaps to verify
 
@@ -66,13 +71,13 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 - [x] Overflow → +5 min → reaches new boundary → re-enters overflow (chime fires again)
 - [ ] iOS Safari "Add to Home Screen" PWA flow — audio, wake lock, notifications
 - [x] Multiple-tab behavior — banner warns when another tab has an active session (cross-tab timer sync deliberately not attempted)
-- [ ] Daylight savings boundary — does a session that crosses 2am→3am break the calendar?
+- [x] Daylight savings boundary — does a session that crosses 2am→3am break the calendar? Traced the bucketing math: `db.pomodoros.where('startedAt').between(...)` uses UTC ms ranges from date-fns `startOfDay`/`endOfDay` (which respect local time correctly across DST), `byDay` keys are local `yyyy-MM-dd`, and `actualSeconds` is `(endedAt - startedAt)/1000` so wall-clock duration is exact. Calendar week/day rails use `getHours()` and `getMinutes()` which return local-time values, so a 1:30am session on spring-forward day still positions at 1:30am even though wall-clock skips 2-3am. Only soft spot was `DailyTimeline`'s "% of day" tooltip, which divided by a hard-coded `24h` rather than the actual local-day length (23h on spring-forward, 25h on fall-back). Fixed: now computes `dayLengthMs` from local midnight to next local midnight. The user is in Manila (no local DST), so this only affects users browsing from DST zones.
 
 ## Open follow-ups for tasks
 - [x] Cloud sync (Supabase) for tasks + templates + new reflection fields + pomodoro.taskId
 - [x] Mid-session task switcher in active screen
-- [ ] Per-task drill-in / detail view
-- [ ] Drag-reorder tasks (currently `order` is set to createdAt; no UI to change)
+- [x] Per-task drill-in / detail view
+- [x] Drag-reorder tasks (currently `order` is set to createdAt; no UI to change)
 
 ## Tier B — useful, build after Tier A
 
@@ -81,7 +86,6 @@ Last updated: 2026-05-22 (Multi-tab presence banner; distraction tap counter; PW
 ## Tier C — polish
 
 - [ ] Visual polish for overflow ring (second ring growing outward instead of fade)
-- [ ] Per-project goals / quotas (e.g. "5h/week on Ventryx ops")
 - [ ] Auto-archive projects with no sessions in 90 days
 - [ ] Sound profiles per project (different chime / ambient defaults)
 - [ ] Project comparison view (side-by-side bars over time)

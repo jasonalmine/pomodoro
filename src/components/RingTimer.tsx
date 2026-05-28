@@ -6,7 +6,6 @@ import type { Phase } from '../types'
 const PHASE_LABEL: Record<Phase, string> = {
   idle: 'Ready',
   breathing: 'Settle In',
-  meditation: 'Meditation',
   work: 'Focus',
   flow: 'Flowing',
   shortBreak: 'Short Break',
@@ -30,7 +29,6 @@ function phaseRingColor(phase: Phase): string {
     case 'work':
     case 'flow':
     case 'breathing':
-    case 'meditation':
       return accentColor()
     default:
       return 'rgb(100 100 115)'

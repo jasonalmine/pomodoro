@@ -20,7 +20,7 @@ export function useKeyboardShortcuts() {
       const { phase, isRunning, pause, resume, skip, abort, extend, adjustPhase } = state
 
       // Only act during an active session (not idle, not reflect, not breathing prep)
-      const active = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak' || phase === 'meditation'
+      const active = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
       if (!active) return
 
       const key = e.key

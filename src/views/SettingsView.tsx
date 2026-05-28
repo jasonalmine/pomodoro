@@ -59,7 +59,7 @@ export function SettingsView() {
       </Section>
 
       <Section title="Pre-session ritual">
-        <Toggle label="Enable breathing + meditation" checked={s.ritual.enabled}
+        <Toggle label="Breathing warm-up before focus" checked={s.ritual.enabled}
           onChange={v => updateSettings({ ritual: { ...s.ritual, enabled: v } })} />
         <Field label="Breath pattern">
           <select
@@ -73,8 +73,6 @@ export function SettingsView() {
         <div className="grid grid-cols-2 gap-3">
           <Num label="Cycles" value={s.ritual.cycles} min={0} max={20}
             onChange={v => updateSettings({ ritual: { ...s.ritual, cycles: v } })} />
-          <Num label="Meditation (sec)" value={s.ritual.meditationSeconds} min={0} max={1800}
-            onChange={v => updateSettings({ ritual: { ...s.ritual, meditationSeconds: v } })} />
         </div>
         <Toggle label="Soft breath cue tones" checked={s.ritual.breathCues}
           onChange={v => updateSettings({ ritual: { ...s.ritual, breathCues: v } })}

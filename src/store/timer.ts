@@ -156,8 +156,6 @@ export const useTimer = create<TimerState>((set, get) => ({
     if (!plan) return
     if (plan.ritual.enabled && plan.ritual.cycles > 0) {
       enterBreathing(plan, set, get)
-    } else if (plan.ritual.enabled && plan.ritual.meditationSeconds > 0) {
-      enterMeditation(plan, set)
     } else {
       enterWork(plan, set)
     }
@@ -231,7 +229,7 @@ export const useTimer = create<TimerState>((set, get) => ({
       return
     }
 
-    // Otherwise (breathing / meditation / break / idle / reflect): just stop.
+    // Otherwise (breathing / break / idle / reflect): just stop.
     set({
       phase: 'idle',
       isRunning: false,
@@ -269,8 +267,8 @@ export const useTimer = create<TimerState>((set, get) => ({
     if (s.phase === 'flow') return // count-up, never auto-advances
     const elapsed = s.phaseElapsedSec + (nowSec() - s.phaseStartedAt)
     // For metered phases (work / breaks), enter overflow at the boundary instead of advancing.
-    // Breathing + meditation keep auto-advancing.
-    if (s.phase === 'breathing' || s.phase === 'meditation') {
+    // Breathing keeps auto-advancing.
+    if (s.phase === 'breathing') {
       if (elapsed >= s.phaseDurationSec) advancePhase(set, get)
       return
     }
@@ -381,7 +379,7 @@ export const useTimer = create<TimerState>((set, get) => ({
       shortBreakSeconds: defaults.shortBreakMinutes * 60,
       longBreakSeconds: defaults.longBreakMinutes * 60,
       longBreakEvery: defaults.longBreakEvery,
-      ritual: { enabled: false, patternId: 'box', cycles: 0, meditationSeconds: 0, breathCues: false },
+      ritual: { enabled: false, patternId: 'box', cycles: 0, breathCues: false },
       autoStartBreaks: defaults.autoStartBreaks,
       autoStartWork: defaults.autoStartWork,
       allowOvertime: defaults.allowOvertime,
@@ -463,23 +461,7 @@ function scheduleBreathTick(set: (p: Partial<TimerState>) => void, get: () => Ti
 function onBreathingComplete(set: (p: Partial<TimerState>) => void, get: () => TimerState) {
   clearBreathTimer()
   const plan = get().plan!
-  if (plan.ritual.meditationSeconds > 0) {
-    enterMeditation(plan, set)
-  } else {
-    enterWork(plan, set)
-  }
-}
-
-function enterMeditation(plan: SessionPlan, set: (p: Partial<TimerState>) => void) {
-  set({
-    phase: 'meditation',
-    isRunning: true,
-    phaseDurationSec: plan.ritual.meditationSeconds,
-    phaseElapsedSec: 0,
-    phaseStartedAt: nowSec(),
-    breath: null,
-    isOverflow: false,
-  })
+  enterWork(plan, set)
 }
 
 function enterWork(plan: SessionPlan, set: (p: Partial<TimerState>) => void) {
@@ -721,9 +703,6 @@ function advancePhase(set: (p: Partial<TimerState>) => void, get: () => TimerSta
   switch (s.phase) {
     case 'breathing':
       onBreathingComplete(set, get)
-      return
-    case 'meditation':
-      enterWork(plan, set)
       return
     case 'work': {
       if (s.isCompleting) return

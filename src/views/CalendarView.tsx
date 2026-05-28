@@ -37,7 +37,10 @@ export function CalendarView() {
   }, [mode, cursor])
 
   const pomodoros = useLiveQuery(
-    () => db.pomodoros.where('startedAt').between(rangeStart.getTime(), rangeEnd.getTime(), true, true).toArray(),
+    () => db.pomodoros
+      .where('startedAt').between(rangeStart.getTime(), rangeEnd.getTime(), true, true)
+      .filter(p => !p.deletedAt)
+      .toArray(),
     [rangeStart.getTime(), rangeEnd.getTime()],
     [],
   )
