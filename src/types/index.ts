@@ -72,6 +72,12 @@ export type CalendarSyncSettings = {
   markBusy: boolean
   // Skip blocks shorter than this many minutes (avoids clutter from tiny runs).
   minMinutes: number
+  // Live mode: create a tentative event when a focus session STARTS and finalize
+  // it on completion, so the calendar shows "in focus" in real time. Fixed-
+  // duration focus only (not flow). Off by default — it writes during sessions.
+  liveBlocks: boolean
+  // Tint each event with the Google colour closest to its project colour.
+  colorByProject: boolean
 }
 
 export type Settings = {

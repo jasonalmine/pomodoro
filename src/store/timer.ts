@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { db, BREATH_PATTERNS } from '../db'
 import type { Phase, Pomodoro, RitualConfig, TimerDefaults } from '../types'
 import { chime } from '../audio/engine'
-import { syncPomodoroToCalendar } from '../lib/calendar'
+import { beginLiveCalendarBlock, syncPomodoroToCalendar } from '../lib/calendar'
 
 // Fire-and-forget push of a freshly-saved focus block to Google Calendar.
 // No-ops unless the user has calendar sync enabled with a Maton key; never
@@ -474,6 +474,15 @@ function onBreathingComplete(set: (p: Partial<TimerState>) => void, get: () => T
 
 function enterWork(plan: SessionPlan, set: (p: Partial<TimerState>) => void) {
   chime('start')
+  // Live mode: open a tentative calendar event now; it's finalized when the
+  // block is saved (completeWork / endWorkIntoBreak both call calendarSync).
+  beginLiveCalendarBlock({
+    projectId: plan.projectId,
+    taskId: plan.taskId,
+    task: plan.task,
+    plannedSeconds: plan.workSeconds,
+    flowMode: plan.flowMode,
+  })
   set({
     phase: 'work',
     isRunning: true,

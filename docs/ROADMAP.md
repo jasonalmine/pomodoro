@@ -94,7 +94,7 @@ Last updated: 2026-05-29 (Google Calendar sync via Maton — focus blocks auto-l
 ## Tier D — big swings, defer until they're worth it
 
 - [ ] **Mobile native app** wrapping the PWA (Capacitor or similar) for richer notifications and lock-screen timer
-- [x] **Calendar integration (log-on-completion)** — finished focus blocks land on Google Calendar via the Maton gateway. See Shipped. Editing a synced session now PUTs the existing event (no stale entries) and deleting it removes the event. Remaining follow-ups: (a) live mode — create a tentative event at session start and finalize on completion; (b) per-project Google `colorId` mapping; (c) dedupe-by-`pomodoroId` via `privateExtendedProperty` query as a belt-and-suspenders guard against duplicate events.
+- [x] **Calendar integration** — finished focus blocks land on Google Calendar via the Maton gateway. See Shipped. Editing a synced session PUTs the existing event (no stale entries), deleting removes it. Now also: **live blocks** (opt-in — a tentative event at focus start, finalized on completion, so the calendar shows "in focus" live; fixed-duration focus only), **per-project Google `colorId`** (events tinted to the nearest Google colour for their project), and **offline auto-retry** (blocks finished offline / through a transient failure flush to the calendar when connectivity returns or the tab refocuses). Remaining follow-up: dedupe-by-`pomodoroId` via `privateExtendedProperty` query as a belt-and-suspenders guard, and cleanup of orphaned tentative events if the app closes mid-session.
 - [ ] **Slack / status integration** — auto-set status to "in focus" during sessions (Maton supports Slack too, so the same gateway client could drive it)
 
 ## Recurring practices

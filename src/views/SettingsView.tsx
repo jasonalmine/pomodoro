@@ -531,6 +531,13 @@ function CalendarSyncSection() {
             onChange={v => patchCal({ includeReflection: v })} />
           <Toggle label="Mark events as Busy" checked={cfg.markBusy}
             onChange={v => patchCal({ markBusy: v })} />
+          <Toggle label="Color events by project" checked={cfg.colorByProject}
+            onChange={v => patchCal({ colorByProject: v })} />
+          <Toggle label="Live blocks — add the event when a focus session starts" checked={cfg.liveBlocks}
+            onChange={v => patchCal({ liveBlocks: v })} />
+          <p className="text-[11px] text-ink-400 -mt-1">
+            Live blocks put a tentative event on your calendar the moment a focus session begins (fixed-duration focus only), then finalize it when you finish — so your calendar shows “in focus” in real time. Off logs each block after it ends.
+          </p>
           <div className="grid grid-cols-2 gap-3 pt-1">
             <Num label="Skip blocks under (min)" value={cfg.minMinutes} min={1} max={120}
               onChange={v => patchCal({ minMinutes: v })} />

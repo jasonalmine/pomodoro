@@ -178,8 +178,39 @@ type GoogleEvent = {
   start: { dateTime: string; timeZone: string }
   end: { dateTime: string; timeZone: string }
   transparency: 'opaque' | 'transparent'
+  status?: 'confirmed' | 'tentative'
+  colorId?: string
   reminders: { useDefault: false }
   extendedProperties: { private: Record<string, string> }
+}
+
+// Google Calendar's 11 fixed event colours. We map a project's hex to the
+// nearest one by RGB distance so focus blocks group visually by project.
+const GOOGLE_EVENT_COLORS: Array<[string, string]> = [
+  ['1', '#7986CB'], ['2', '#33B679'], ['3', '#8E24AA'], ['4', '#E67C73'],
+  ['5', '#F6BF26'], ['6', '#F4511E'], ['7', '#039BE5'], ['8', '#616161'],
+  ['9', '#3F51B5'], ['10', '#0B8043'], ['11', '#D50000'],
+]
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+function nearestGoogleColorId(hex: string | undefined): string | undefined {
+  if (!hex) return undefined
+  const rgb = hexToRgb(hex)
+  if (!rgb) return undefined
+  let best: string | undefined
+  let bestDist = Infinity
+  for (const [id, chex] of GOOGLE_EVENT_COLORS) {
+    const c = hexToRgb(chex)!
+    const d = (rgb[0] - c[0]) ** 2 + (rgb[1] - c[1]) ** 2 + (rgb[2] - c[2]) ** 2
+    if (d < bestDist) { bestDist = d; best = id }
+  }
+  return best
 }
 
 function localTimeZone(): string {
@@ -200,6 +231,7 @@ export function buildEventBody(
   pom: Pomodoro,
   project: Project | undefined,
   cfg: CalendarSyncSettings,
+  status: 'confirmed' | 'tentative' = 'confirmed',
 ): GoogleEvent {
   const projectName = project?.name?.trim()
   const taskText = pom.task?.trim()
@@ -232,6 +264,8 @@ export function buildEventBody(
     start: { dateTime: isoWithOffset(pom.startedAt), timeZone: tz },
     end: { dateTime: isoWithOffset(pom.endedAt), timeZone: tz },
     transparency: cfg.markBusy ? 'opaque' : 'transparent',
+    status,
+    colorId: cfg.colorByProject ? nearestGoogleColorId(project?.color) : undefined,
     // A logged, already-finished block should never trigger a reminder.
     reminders: { useDefault: false },
     extendedProperties: { private: { pomodoroId: pom.id, app: 'pomodoro-focus' } },
@@ -309,8 +343,50 @@ function shouldSync(pom: Pomodoro, cfg: CalendarSyncSettings): boolean {
 let lastError: string | null = null
 const inFlight = new Set<string>()
 
+// Live-block state. When live mode is on, a focus session creates a tentative
+// event at start; this promise resolves to its event id (or null on failure).
+// The next syncPomodoroToCalendar() for that session "adopts" it — finalizing
+// the tentative event instead of creating a fresh one. Single-session by design
+// (one timer per tab).
+let livePromise: Promise<string | null> | null = null
+
 export function getLastCalendarError(): string | null {
   return lastError
+}
+
+// Called from the timer when a fixed-duration focus session STARTS. Creates a
+// tentative calendar event now → now+planned so the calendar shows "in focus"
+// live. No-op unless live mode is enabled and configured; never throws.
+export function beginLiveCalendarBlock(input: {
+  projectId: string
+  taskId: string | null
+  task: string
+  plannedSeconds: number
+  flowMode?: boolean
+}): void {
+  livePromise = (async () => {
+    try {
+      const cfg = await getCalendarSettings()
+      if (!cfg.enabled || !cfg.matonApiKey || !cfg.liveBlocks) return null
+      if (input.flowMode || input.plannedSeconds <= 0) return null // fixed-duration focus only
+      const startMs = Date.now()
+      const project = input.projectId ? await db.projects.get(input.projectId) : undefined
+      // Synthetic Pomodoro just for body-building; the real id is written on finalize.
+      const pseudo: Pomodoro = {
+        id: 'live', projectId: input.projectId, taskId: input.taskId ?? undefined,
+        task: input.task, startedAt: startMs, endedAt: startMs + input.plannedSeconds * 1000,
+        plannedSeconds: input.plannedSeconds, actualSeconds: input.plannedSeconds,
+        completed: false, ritualUsed: false, updatedAt: startMs,
+      }
+      const body = buildEventBody(pseudo, project, cfg, 'tentative')
+      const { id } = await createCalendarEvent(cfg.matonApiKey, cfg.calendarId || 'primary', body, cfg.connectionId)
+      return id
+    } catch (e) {
+      lastError = calendarErrorMessage(e)
+      console.warn('[calendar] live block create failed:', lastError)
+      return null
+    }
+  })()
 }
 
 export type SyncResult = 'created' | 'skipped' | 'already' | 'error'
@@ -340,6 +416,27 @@ export async function syncPomodoroToCalendar(
 
     const calId = cfg.calendarId || 'primary'
     const project = pom.projectId ? await db.projects.get(pom.projectId) : undefined
+
+    // Live mode: if this session opened a tentative event, finalize THAT event
+    // (confirmed, real end time) instead of creating a second one. Only on the
+    // auto path — manual/force adds never have a pending live event.
+    if (!opts.force && livePromise) {
+      const liveId = await livePromise.catch(() => null)
+      livePromise = null
+      if (liveId) {
+        try {
+          await updateCalendarEvent(cfg.matonApiKey, calId, liveId, buildEventBody(pom, project, cfg, 'confirmed'), cfg.connectionId)
+          const ts = Date.now()
+          await db.pomodoros.update(pomodoroId, { calendarEventId: liveId, calendarSyncedAt: ts, updatedAt: ts })
+          lastError = null
+          return 'created'
+        } catch {
+          // Finalizing failed — drop the tentative event and fall through to a fresh create.
+          await deleteCalendarEvent(cfg.matonApiKey, calId, liveId, cfg.connectionId).catch(() => { /* best-effort */ })
+        }
+      }
+    }
+
     const body = buildEventBody(pom, project, cfg)
     // Forcing a re-sync of an already-synced row would otherwise orphan the old
     // event (POST makes a new one). Remove the prior event first, best-effort.
@@ -402,6 +499,21 @@ export async function deletePomodoroCalendarEvent(pom: Pick<Pomodoro, 'calendarE
   } catch (e) {
     lastError = calendarErrorMessage(e)
     console.warn('[calendar] event delete failed:', lastError)
+  }
+}
+
+// Auto-retry: quietly push any recent finished blocks that aren't on the
+// calendar yet. Wired to the `online` / tab-visible events so a block finished
+// while offline (or during a Maton/Google blip) lands once connectivity is
+// back. No-op unless sync is enabled + connected; never throws.
+export async function flushUnsyncedCalendar(days = 2): Promise<void> {
+  const cfg = await getCalendarSettings()
+  if (!cfg.enabled || !cfg.matonApiKey || !cfg.connectionId) return
+  const since = Date.now() - days * 24 * 60 * 60 * 1000
+  const rows = await db.pomodoros.where('startedAt').above(since).toArray()
+  const pending = rows.filter((p) => !p.calendarEventId && shouldSync(p, cfg))
+  for (const p of pending) {
+    await syncPomodoroToCalendar(p.id, { throwOnError: false })
   }
 }
 

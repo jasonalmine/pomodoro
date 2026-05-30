@@ -4,6 +4,7 @@ import { ensureSeed } from './db'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
 import { useSync } from './hooks/useSync'
+import { useCalendarSync } from './hooks/useCalendarSync'
 import { usePageTitle } from './hooks/usePageTitle'
 import { useFaviconTimer } from './hooks/useFaviconTimer'
 import { useTimer } from './store/timer'
@@ -19,6 +20,7 @@ function Shell() {
   const settings = useSettings()
   useTheme(settings.theme, settings.palette ?? 'ember')
   useSync()
+  useCalendarSync()
   usePageTitle()
   useFaviconTimer()
   useEffect(() => { void ensureSeed() }, [])

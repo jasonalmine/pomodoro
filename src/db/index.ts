@@ -162,6 +162,8 @@ export const DEFAULT_SETTINGS: Settings = {
     includeReflection: true,
     markBusy: true,
     minMinutes: 1,
+    liveBlocks: false,
+    colorByProject: true,
   },
 }
 
