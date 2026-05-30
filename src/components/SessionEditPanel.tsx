@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { format } from 'date-fns'
-import { Trash2, X } from 'lucide-react'
+import { CalendarDays, Trash2, X } from 'lucide-react'
 import { db } from '../db'
 import { Button } from './Button'
 import { fmtDuration } from '../lib/format'
 import { recentTags } from '../lib/stats'
 import { deletePomodoroEverywhere } from '../lib/sync'
+import { calendarErrorMessage, syncPomodoroToCalendar, updatePomodoroCalendarEvent } from '../lib/calendar'
+import { useSettings } from '../hooks/useSettings'
 import type { Pomodoro, Project } from '../types'
 
 // Comprehensive editor for a saved Pomodoro: project, linked task, task text,
@@ -37,7 +39,23 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
   const [completed, setCompleted] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [calBusy, setCalBusy] = useState(false)
   const [seeded, setSeeded] = useState(false)
+
+  const settings = useSettings()
+  const calConfigured = !!settings.calendarSync.matonApiKey
+
+  const addToCalendar = async () => {
+    setError(null)
+    setCalBusy(true)
+    try {
+      await syncPomodoroToCalendar(pomodoroId, { force: true, throwOnError: true })
+    } catch (e) {
+      setError(calendarErrorMessage(e))
+    } finally {
+      setCalBusy(false)
+    }
+  }
 
   // Seed form once from the loaded Pomodoro.
   useEffect(() => {
@@ -114,6 +132,8 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
         updatedAt: Date.now(),
       }
       await db.pomodoros.update(pomodoroId, patch)
+      // Keep the calendar event in step with the edited time / title / notes.
+      if (pom.calendarEventId) void updatePomodoroCalendarEvent(pomodoroId)
       onClose()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed.')
@@ -123,7 +143,10 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
   }
 
   const onDelete = async () => {
-    if (!confirm('Delete this Pomodoro? This cannot be undone.')) return
+    const msg = pom?.calendarEventId
+      ? 'Delete this Pomodoro? It will also be removed from your Google Calendar. This cannot be undone.'
+      : 'Delete this Pomodoro? This cannot be undone.'
+    if (!confirm(msg)) return
     setBusy(true)
     setError(null)
     try {
@@ -169,6 +192,22 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
 
         {pom && (
           <>
+            {calConfigured && (
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 dark:border-ink-800 px-3 py-2.5">
+                <div className="flex items-center gap-2 text-xs">
+                  <CalendarDays size={14} className="text-accent shrink-0" />
+                  {pom.calendarEventId
+                    ? <span className="text-emerald-600 dark:text-emerald-400">On Google Calendar</span>
+                    : <span className="text-ink-500">Not on your calendar yet</span>}
+                </div>
+                {!pom.calendarEventId && (
+                  <Button variant="secondary" size="sm" onClick={() => void addToCalendar()} disabled={calBusy}>
+                    {calBusy ? 'Adding…' : 'Add to calendar'}
+                  </Button>
+                )}
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Project</div>
               <div className="flex flex-wrap gap-1.5">

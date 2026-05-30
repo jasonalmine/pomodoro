@@ -2,6 +2,14 @@ import { create } from 'zustand'
 import { db, BREATH_PATTERNS } from '../db'
 import type { Phase, Pomodoro, RitualConfig, TimerDefaults } from '../types'
 import { chime } from '../audio/engine'
+import { syncPomodoroToCalendar } from '../lib/calendar'
+
+// Fire-and-forget push of a freshly-saved focus block to Google Calendar.
+// No-ops unless the user has calendar sync enabled with a Maton key; never
+// throws into the timer flow (errors are caught + surfaced via module state).
+function calendarSync(id: string) {
+  void syncPomodoroToCalendar(id).catch(() => { /* surfaced via getLastCalendarError */ })
+}
 
 type SessionPlan = {
   projectId: string
@@ -501,6 +509,7 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
     updatedAt: endedAt,
   }
   await db.pomodoros.put(pomodoro)
+  calendarSync(pomodoro.id)
   // Boundary chime already fired when overflow started. Skip it here to avoid a double-chime.
   if (!s.isOverflow) chime('workEnd')
   const newWorkCount = s.workCount + 1
@@ -551,6 +560,7 @@ async function endWorkIntoBreak(
     updatedAt: endedAt,
   }
   await db.pomodoros.put(pomodoro)
+  calendarSync(pomodoro.id)
   chime('workEnd')
   const newWorkCount = workCount + 1
   const isLong = (newWorkCount % plan.longBreakEvery) === 0
@@ -599,6 +609,7 @@ async function completeFlow(set: (p: Partial<TimerState>) => void, get: () => Ti
     updatedAt: endedAt,
   }
   await db.pomodoros.put(pomodoro)
+  calendarSync(pomodoro.id)
   chime('workEnd')
   const breakMinutes = Math.max(5, Math.min(30, Math.round(actualSeconds / 60 / 5)))
   const breakSec = breakMinutes * 60
@@ -649,6 +660,7 @@ async function endFlowIntoBreak(
     updatedAt: endedAt,
   }
   await db.pomodoros.put(pomodoro)
+  calendarSync(pomodoro.id)
   chime('workEnd')
   // Proportional break: 1/5 of the flow time, clamped to [5, 30] minutes.
   const breakMinutes = Math.max(5, Math.min(30, Math.round(actualSeconds / 60 / 5)))

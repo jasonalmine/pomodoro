@@ -57,6 +57,9 @@ alter table pomodoros add column if not exists flow_mode boolean;
 alter table pomodoros add column if not exists manual boolean;
 alter table pomodoros add column if not exists distractions int;
 alter table pomodoros add column if not exists tags text[];
+alter table pomodoros add column if not exists deleted_at bigint;
+alter table pomodoros add column if not exists calendar_event_id text;
+alter table pomodoros add column if not exists calendar_synced_at bigint;
 
 alter table pomodoros enable row level security;
 

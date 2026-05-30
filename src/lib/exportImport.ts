@@ -90,6 +90,12 @@ export async function exportJson() {
     const s = settings ?? DEFAULT_SETTINGS
     const { anthropicApiKey: _a, aiApiKey: _b, ...rest } = s
     void _a; void _b
+    // The Maton key lives inside calendarSync — strip it but keep the prefs.
+    if (rest.calendarSync) {
+      const { matonApiKey: _c, ...calRest } = rest.calendarSync
+      void _c
+      rest.calendarSync = calRest as Settings['calendarSync']
+    }
     return rest as Settings
   })()
   const bundle: ExportBundle = {
@@ -155,7 +161,24 @@ export async function importJson(file: File): Promise<ImportResult> {
     if (shutdowns.length) await db.dayShutdowns.bulkPut(shutdowns)
     if (notes.length) await db.dayNotes.bulkPut(notes)
     if (bundle.settings) {
-      await db.settings.put({ ...DEFAULT_SETTINGS, ...bundle.settings, id: 'singleton' })
+      // Exports strip on-device secrets (Maton key, AI keys). Preserve the live
+      // ones so restoring your own backup doesn't silently wipe them and half-
+      // break sync. settings is not cleared above, so `current` is still present.
+      const current = await db.settings.get('singleton')
+      const incoming = bundle.settings
+      await db.settings.put({
+        ...DEFAULT_SETTINGS,
+        ...incoming,
+        id: 'singleton',
+        aiApiKey: incoming.aiApiKey ?? current?.aiApiKey,
+        anthropicApiKey: incoming.anthropicApiKey ?? current?.anthropicApiKey,
+        calendarSync: {
+          ...DEFAULT_SETTINGS.calendarSync,
+          ...current?.calendarSync,
+          ...incoming.calendarSync,
+          matonApiKey: incoming.calendarSync?.matonApiKey ?? current?.calendarSync?.matonApiKey,
+        },
+      })
     }
   })
 

@@ -6,6 +6,7 @@ import { db } from '../db'
 import { Button } from './Button'
 import { fmtDuration } from '../lib/format'
 import { recentTasks } from '../lib/stats'
+import { syncPomodoroToCalendar } from '../lib/calendar'
 import type { Pomodoro, Project } from '../types'
 
 export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
@@ -63,6 +64,7 @@ export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () =>
       updatedAt: ts,
     }
     await db.pomodoros.put(pomodoro)
+    void syncPomodoroToCalendar(pomodoro.id).catch(() => { /* surfaced via getLastCalendarError */ })
     setSaving(false)
     onClose()
   }

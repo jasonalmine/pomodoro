@@ -1,15 +1,23 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Bookmark, Cloud, CloudOff, Download, FileDown, LogOut, RefreshCw, Sparkles, Trash2, Upload } from 'lucide-react'
+import { Bookmark, CalendarDays, Cloud, CloudOff, Download, FileDown, LogOut, RefreshCw, Sparkles, Trash2, Upload } from 'lucide-react'
 import { BREATH_PATTERNS, db } from '../db'
-import { useSettings, updateSettings } from '../hooks/useSettings'
+import { useSettings, updateSettings, updateCalendarSync } from '../hooks/useSettings'
 import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
 import { signInWithEmail, signOut, syncNow } from '../lib/sync'
 import { DEFAULT_MODELS, PROVIDER_META } from '../lib/ai'
+import {
+  backfillRecent,
+  calendarErrorMessage,
+  createConnection,
+  findActiveConnection,
+  pollConnection,
+  verifyCalendarAccess,
+} from '../lib/calendar'
 import { Button } from '../components/Button'
-import type { AiProvider, AmbientId, Palette, ThemeMode } from '../types'
+import type { AiProvider, AmbientId, CalendarSyncSettings, Palette, ThemeMode } from '../types'
 
 export function SettingsView() {
   const s = useSettings()
@@ -143,6 +151,8 @@ export function SettingsView() {
       <TemplatesSection />
 
       <AIReviewSection />
+
+      <CalendarSyncSection />
 
       <CloudSyncSection />
 
@@ -316,6 +326,241 @@ function AIReviewSection() {
 
       {!apiKey && (
         <p className="text-[11px] text-ink-400">Without a key, the "Generate" button on Insights → Week is disabled.</p>
+      )}
+    </section>
+  )
+}
+
+function CalendarSyncSection() {
+  const s = useSettings()
+  const cfg = s.calendarSync
+  const key = cfg.matonApiKey ?? ''
+  const linked = !!cfg.connectionId
+
+  const [showKey, setShowKey] = useState(false)
+  const [busy, setBusy] = useState<'idle' | 'connecting' | 'verifying' | 'backfilling'>('idle')
+  const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
+  const [calName, setCalName] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Cancel any in-flight connection poll on unmount.
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  // Deep-merges onto the freshly-read row (not the captured render value), so a
+  // write that lands after an await — e.g. connect() persisting connectionId up
+  // to 180s later — never reverts sub-settings changed in the meantime.
+  const patchCal = (patch: Partial<CalendarSyncSettings>) => updateCalendarSync(patch)
+
+  const connect = async () => {
+    if (!key) { setStatus({ kind: 'err', text: 'Paste your Maton API key first.' }); return }
+    setStatus(null)
+    setBusy('connecting')
+    const ac = new AbortController()
+    abortRef.current = ac
+    try {
+      // Reuse an existing active connection for this key if there is one.
+      const existing = await findActiveConnection(key)
+      let connectionId = existing?.connection_id
+      if (!connectionId) {
+        const conn = await createConnection(key)
+        window.open(conn.url, '_blank', 'noopener,noreferrer')
+        setStatus({ kind: 'ok', text: 'Authorize Google in the opened tab — waiting…' })
+        const active = await pollConnection(key, conn.connection_id, { signal: ac.signal })
+        connectionId = active.connection_id
+      }
+      await patchCal({ connectionId, enabled: true })
+      setStatus({ kind: 'ok', text: 'Connected to Google Calendar.' })
+    } catch (e) {
+      setStatus({ kind: 'err', text: calendarErrorMessage(e) })
+    } finally {
+      setBusy('idle')
+      abortRef.current = null
+    }
+  }
+
+  const recheck = async () => {
+    if (!key) return
+    setStatus(null)
+    setBusy('connecting')
+    try {
+      const existing = await findActiveConnection(key)
+      if (existing) {
+        await patchCal({ connectionId: existing.connection_id, enabled: true })
+        setStatus({ kind: 'ok', text: 'Connected to Google Calendar.' })
+      } else {
+        setStatus({ kind: 'err', text: 'No active Google Calendar connection yet. Finish the Google tab, then check again.' })
+      }
+    } catch (e) {
+      setStatus({ kind: 'err', text: calendarErrorMessage(e) })
+    } finally {
+      setBusy('idle')
+    }
+  }
+
+  const verify = async () => {
+    setStatus(null)
+    setBusy('verifying')
+    try {
+      const name = await verifyCalendarAccess(key, cfg.calendarId || 'primary', cfg.connectionId)
+      setCalName(name)
+      setStatus({ kind: 'ok', text: `Access confirmed — writing to “${name}”.` })
+    } catch (e) {
+      setStatus({ kind: 'err', text: calendarErrorMessage(e) })
+    } finally {
+      setBusy('idle')
+    }
+  }
+
+  const disconnect = () => {
+    abortRef.current?.abort()
+    setCalName(null)
+    setStatus({ kind: 'ok', text: 'Unlinked on this device. The Google authorization still lives in your Maton account.' })
+    void patchCal({ connectionId: undefined })
+  }
+
+  const backfill = async () => {
+    setStatus(null)
+    setBusy('backfilling')
+    try {
+      const r = await backfillRecent(7)
+      setStatus({
+        kind: r.failed ? 'err' : 'ok',
+        text: r.scanned === 0
+          ? 'Nothing new to sync from the last 7 days.'
+          : `Added ${r.created} of ${r.scanned} session${r.scanned === 1 ? '' : 's'}${r.failed ? ` · ${r.failed} failed` : ''}.`,
+      })
+    } catch (e) {
+      setStatus({ kind: 'err', text: calendarErrorMessage(e) })
+    } finally {
+      setBusy('idle')
+    }
+  }
+
+  return (
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <CalendarDays size={18} className="text-accent" />
+        <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Google Calendar</h2>
+      </div>
+      <p className="text-xs text-ink-500">
+        Drop each finished focus block onto your Google Calendar automatically, so your day shows where your attention actually went. Powered by{' '}
+        <a href="https://maton.ai" target="_blank" rel="noreferrer" className="underline">Maton</a> — it holds the Google connection, so this app never sees your Google login. Your Maton key stays on this device and is never synced or exported.
+      </p>
+
+      <Toggle
+        label="Sync focus blocks to Google Calendar"
+        checked={cfg.enabled}
+        onChange={v => patchCal({ enabled: v })}
+      />
+      {cfg.enabled && !key && (
+        <p className="text-[11px] text-amber-600 dark:text-amber-400 -mt-2">
+          Add your Maton API key below to start syncing.
+        </p>
+      )}
+
+      <Field label="Maton API key">
+        <div className="relative">
+          <input
+            type={showKey ? 'text' : 'password'}
+            value={key}
+            onChange={e => patchCal({ matonApiKey: e.target.value.trim() || undefined })}
+            placeholder="maton_…"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
+          />
+          <button
+            type="button"
+            onClick={() => setShowKey(v => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-500 hover:text-ink-800 dark:hover:text-ink-100 px-2 py-1 rounded-md hover:bg-ink-100 dark:hover:bg-ink-800"
+          >
+            {showKey ? 'Hide' : 'Show'}
+          </button>
+        </div>
+      </Field>
+      <p className="text-[11px] text-ink-500 -mt-1">
+        Grab a free key at{' '}
+        <a href="https://maton.ai/settings" target="_blank" rel="noreferrer" className="underline">maton.ai/settings</a>.
+      </p>
+
+      {key && (
+        <div className="rounded-xl border border-ink-200 dark:border-ink-800 p-3.5 space-y-3">
+          {linked ? (
+            <>
+              <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Connected to Google Calendar{calName ? <span className="text-ink-500"> · {calName}</span> : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" size="sm" onClick={() => void verify()} disabled={busy !== 'idle'}>
+                  <RefreshCw size={14} className={busy === 'verifying' ? 'animate-spin' : ''} /> {busy === 'verifying' ? 'Checking…' : 'Verify access'}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={disconnect} disabled={busy !== 'idle'}>
+                  Disconnect
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-ink-500">
+                One-time step: authorize Google through Maton. A tab opens for Google sign-in; come back here when it's done.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" onClick={() => void connect()} disabled={busy !== 'idle'}>
+                  {busy === 'connecting' ? 'Waiting for Google…' : 'Connect Google Calendar'}
+                </Button>
+                {busy === 'connecting' && (
+                  <Button variant="ghost" size="sm" onClick={() => abortRef.current?.abort()}>Cancel</Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => void recheck()} disabled={busy !== 'idle'}>
+                  Check again
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {key && (
+        <div className="space-y-2 pt-1">
+          <Toggle label="Sync standard focus sessions" checked={cfg.syncFocus}
+            onChange={v => patchCal({ syncFocus: v })} />
+          <Toggle label="Sync flow (count-up) sessions" checked={cfg.syncFlow}
+            onChange={v => patchCal({ syncFlow: v })} />
+          <Toggle label="Include reflection notes in the event" checked={cfg.includeReflection}
+            onChange={v => patchCal({ includeReflection: v })} />
+          <Toggle label="Mark events as Busy" checked={cfg.markBusy}
+            onChange={v => patchCal({ markBusy: v })} />
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <Num label="Skip blocks under (min)" value={cfg.minMinutes} min={1} max={120}
+              onChange={v => patchCal({ minMinutes: v })} />
+            <Field label="Calendar">
+              <input
+                value={cfg.calendarId}
+                onChange={e => patchCal({ calendarId: e.target.value.trim() || 'primary' })}
+                placeholder="primary"
+                autoComplete="off"
+                spellCheck={false}
+                className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+              />
+            </Field>
+          </div>
+          <p className="text-[11px] text-ink-400">
+            Leave the calendar as <span className="font-mono">primary</span> for your main calendar, or paste a specific Google calendar ID.
+          </p>
+        </div>
+      )}
+
+      {linked && cfg.enabled && (
+        <Button variant="secondary" size="sm" onClick={() => void backfill()} disabled={busy !== 'idle'}>
+          <CalendarDays size={14} /> {busy === 'backfilling' ? 'Syncing…' : 'Sync the last 7 days'}
+        </Button>
+      )}
+
+      {status && (
+        <div className={`text-xs ${status.kind === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+          {status.text}
+        </div>
       )}
     </section>
   )
