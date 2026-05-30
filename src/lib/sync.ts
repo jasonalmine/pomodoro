@@ -4,6 +4,7 @@
 import type { User } from '@supabase/supabase-js'
 import { db } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
+import { deletePomodoroCalendarEvent } from './calendar'
 import type { DayNote, DayShutdown, Pomodoro, Project, Task, Template } from '../types'
 
 const LAST_SYNC_KEY = 'pomodoro:lastSyncedAt'
@@ -39,6 +40,8 @@ type PomodoroRow = {
   note_done: string | null
   note_next: string | null
   ritual_used: boolean | null
+  calendar_event_id: string | null
+  calendar_synced_at: number | null
   deleted_at: number | null
   updated_at: number
 }
@@ -140,6 +143,8 @@ function pomodoroToRow(p: Pomodoro, userId: string): PomodoroRow {
     note_done: p.noteDone ?? null,
     note_next: p.noteNext ?? null,
     ritual_used: p.ritualUsed,
+    calendar_event_id: p.calendarEventId ?? null,
+    calendar_synced_at: p.calendarSyncedAt ?? null,
     deleted_at: p.deletedAt ?? null,
     updated_at: p.updatedAt,
   }
@@ -164,6 +169,8 @@ function rowToPomodoro(r: PomodoroRow): Pomodoro {
     noteDone: r.note_done ?? undefined,
     noteNext: r.note_next ?? undefined,
     ritualUsed: r.ritual_used ?? false,
+    calendarEventId: r.calendar_event_id ?? undefined,
+    calendarSyncedAt: r.calendar_synced_at ?? undefined,
     deletedAt: r.deleted_at ?? undefined,
     updatedAt: r.updated_at,
   }
@@ -501,8 +508,12 @@ async function pullSince(userId: string, since: number): Promise<number> {
 // tombstone up; reading code treats `deletedAt != null` as gone. Other
 // signed-in devices learn about the deletion on their next pull.
 export async function deletePomodoroEverywhere(id: string): Promise<void> {
+  // Capture the calendar event id before tombstoning so we can remove it from
+  // Google Calendar too (best-effort; the await keeps it before any throw).
+  const existing = await db.pomodoros.get(id)
   const now = Date.now()
   await db.pomodoros.update(id, { deletedAt: now, updatedAt: now })
+  if (existing?.calendarEventId) await deletePomodoroCalendarEvent(existing)
   // Best-effort immediate push of just this row so the deletion isn't
   // stuck behind the next sync cycle.
   if (!supabase) return

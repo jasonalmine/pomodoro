@@ -51,6 +51,29 @@ export type Palette = 'ember' | 'pine' | 'slate'
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini'
 
+// Google Calendar sync via the Maton API gateway (https://api.maton.ai).
+// Bring-your-own Maton key; the gateway holds the Google OAuth token, so the
+// app never touches Google credentials. Stored on-device only (settings are
+// never synced or exported), same posture as the AI key.
+export type CalendarSyncSettings = {
+  enabled: boolean
+  matonApiKey?: string
+  // Maton connection id for the google-calendar app. Optional: when absent the
+  // gateway uses the default (oldest active) connection for the account.
+  connectionId?: string
+  // Target Google calendar. 'primary' is the user's main calendar.
+  calendarId: string
+  // Which focused blocks to push.
+  syncFocus: boolean   // standard work Pomodoros
+  syncFlow: boolean    // count-up flow sessions
+  // Fold the reflection (done / next / note / tags) into the event description.
+  includeReflection: boolean
+  // Mark the event as Busy (opaque) vs Free (transparent) on the calendar.
+  markBusy: boolean
+  // Skip blocks shorter than this many minutes (avoids clutter from tiny runs).
+  minMinutes: number
+}
+
 export type Settings = {
   id: 'singleton'
   timer: TimerDefaults
@@ -65,6 +88,7 @@ export type Settings = {
   aiProvider?: AiProvider
   aiApiKey?: string
   aiModel?: string
+  calendarSync: CalendarSyncSettings
   // Deprecated (pre multi-provider). Read once for migration, then unused.
   anthropicApiKey?: string
 }
@@ -109,6 +133,11 @@ export type Pomodoro = {
   noteDone?: string
   noteNext?: string
   ritualUsed: boolean
+  // Google Calendar (Maton) sync. `calendarEventId` is the id returned by the
+  // calendar; its presence means this block is already on the calendar (used
+  // for idempotency and to delete the event if the session is deleted).
+  calendarEventId?: string
+  calendarSyncedAt?: number
   // Soft-delete tombstone (ms). When set, the row is hidden from every read
   // surface but kept in storage so the tombstone can propagate across devices.
   deletedAt?: number

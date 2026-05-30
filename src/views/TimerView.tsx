@@ -894,6 +894,11 @@ function ReflectionPanel() {
             {fmtDuration(pom.actualSeconds)} focused
             {pom.distractions ? <> · <span className="text-amber-600 dark:text-amber-400">{pom.distractions} distraction{pom.distractions === 1 ? '' : 's'}</span></> : null}
           </div>
+          {pom.calendarSyncedAt && (
+            <div className="pt-1 flex items-center justify-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Added to Google Calendar
+            </div>
+          )}
           {linkedTask && (
             <div className="pt-2 flex items-center justify-center gap-2 text-xs text-ink-500">
               <span className="tabular">{linkedTaskCount}/{linkedTask.estPomodoros}🍅</span>

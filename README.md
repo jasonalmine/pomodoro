@@ -11,6 +11,23 @@ Local-first Pomodoro web app with a calm pre-session ritual, flexible timing, pr
 - Audio: chime on phase transitions, ambient focus sounds (rain / brown noise / lo-fi pad), all WebAudio-generated.
 - Browser notifications when the tab is hidden + Screen Wake Lock during active sessions.
 - Light / dark / system theme.
+- **Google Calendar sync** — finished focus blocks are auto-logged to your calendar (see below).
+
+## Google Calendar sync
+
+Each completed focus (or flow) block can be dropped onto your Google Calendar automatically, so your day shows where your attention actually went.
+
+It runs through [Maton](https://maton.ai), a managed-OAuth API gateway: you bring a Maton API key, authorize Google once through Maton, and Maton injects the Google token on every request. The app never sees your Google login, and because `api.maton.ai` serves open CORS, it all happens client-side — no backend.
+
+**Setup (one time):**
+
+1. Get a free key at [maton.ai/settings](https://maton.ai/settings).
+2. In the app: **Settings → Google Calendar** → paste the key → **Connect Google Calendar**. A tab opens to authorize Google; come back and it flips to *Connected*.
+3. Tune what syncs: standard focus vs. flow sessions, Busy/Free, a "skip blocks under N min" filter, whether to fold reflection notes into the event, and which calendar (`primary` by default).
+
+Events are titled `Project — task` with the reflection in the description. Already-finished blocks can be pushed in bulk with **Sync the last 7 days**, and any single session can be added from its edit modal. Deleting a session removes its calendar event too.
+
+Privacy: the Maton key lives only in this browser (IndexedDB), is **never** synced via Supabase, and is stripped from JSON exports — same posture as the AI weekly-review key.
 
 ## Stack
 
@@ -89,7 +106,7 @@ src/
   components/   Reusable UI (Button, ProjectChip, BreathingCircle, TimerDisplay, Nav)
   db/           Dexie schema, default settings, seed
   hooks/        useSettings, useTheme, useTimerTick, useWakeLock, useAudioEffects, useNotifications
-  lib/          format helpers, sync adapter stub
+  lib/          format helpers, Supabase sync, AI review, Google Calendar (Maton) client
   store/        Zustand timer state machine
   types/        Shared TS types
   views/        Timer, Calendar, Projects, Settings

@@ -154,6 +154,15 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   palette: 'ember',
   dailyGoalPomodoros: 6,
+  calendarSync: {
+    enabled: false,
+    calendarId: 'primary',
+    syncFocus: true,
+    syncFlow: true,
+    includeReflection: true,
+    markBusy: true,
+    minMinutes: 1,
+  },
 }
 
 export async function ensureSeed() {

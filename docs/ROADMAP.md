@@ -2,7 +2,7 @@
 
 Living checklist of improvements. Check items off as they ship. Add new ones at the bottom of the relevant tier — keep the doc honest, don't let ideas pile up forever without revisiting.
 
-Last updated: 2026-05-28 (Per-project goals, per-task drill-in, drag-reorder tasks, cross-device delete tombstones, DST verified, meditation phase removed)
+Last updated: 2026-05-29 (Google Calendar sync via Maton — focus blocks auto-logged as calendar events)
 
 ---
 
@@ -64,6 +64,7 @@ Last updated: 2026-05-28 (Per-project goals, per-task drill-in, drag-reorder tas
 - [x] Per-task drill-in / detail view: new `TaskDetailPanel` modal opens from clicking a task name in the Projects view. Shows project chip, est/done counts, total focus time, all linked sessions (newest first, click to open SessionEditPanel), and a Mark complete / Reopen action.
 - [x] Drag-reorder tasks: dnd-kit-powered grip handle on each open task in the Projects view. Reordering re-sequences `order` (evenly-spaced multiples of 1000), bumps `updatedAt`, syncs via the existing tasks push path. Keyboard accessible.
 - [x] Remove meditation phase from the ritual. Breathing flows straight into focus. `meditationSeconds` is dropped from the Settings type and SettingsView; existing rows can keep the column.
+- [x] **Google Calendar sync (via Maton API).** Every finished focus / flow block is auto-logged as a Google Calendar event on `primary` (or a chosen calendar), titled `Project — task` with the reflection folded into the description. Bring-your-own Maton API key (stored on-device only, never synced or exported, same posture as the AI key); Maton holds the Google OAuth token so the app never touches Google credentials, and `api.maton.ai` serves open CORS so it runs entirely from the browser — no server. Settings → Google Calendar handles the one-time connect flow (create connection → authorize in a popped tab → poll until active), per-type toggles (focus / flow), Busy-vs-Free, a min-minutes filter, reflection-in-description, and a "Sync the last 7 days" backfill. `calendarEventId`/`calendarSyncedAt` live on the Pomodoro (Supabase columns added) for idempotency + cross-device dedupe; deleting a session removes its calendar event best-effort; the reflection screen and the session-edit modal show sync status. New `src/lib/calendar.ts`.
 
 ## QA gaps to verify
 
@@ -93,8 +94,8 @@ Last updated: 2026-05-28 (Per-project goals, per-task drill-in, drag-reorder tas
 ## Tier D — big swings, defer until they're worth it
 
 - [ ] **Mobile native app** wrapping the PWA (Capacitor or similar) for richer notifications and lock-screen timer
-- [ ] **Calendar integration** — block focus time on Google Calendar automatically while a session runs
-- [ ] **Slack / status integration** — auto-set status to "in focus" during sessions
+- [x] **Calendar integration (log-on-completion)** — finished focus blocks land on Google Calendar via the Maton gateway. See Shipped. Editing a synced session now PUTs the existing event (no stale entries) and deleting it removes the event. Remaining follow-ups: (a) live mode — create a tentative event at session start and finalize on completion; (b) per-project Google `colorId` mapping; (c) dedupe-by-`pomodoroId` via `privateExtendedProperty` query as a belt-and-suspenders guard against duplicate events.
+- [ ] **Slack / status integration** — auto-set status to "in focus" during sessions (Maton supports Slack too, so the same gateway client could drive it)
 
 ## Recurring practices
 
