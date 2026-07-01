@@ -11,6 +11,9 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*
@@ -32,3 +35,8 @@ dist-ssr
 
 # Claude Code working dir (scratchpad, local notes)
 .claude/
+
+# Tauri (Rust build output + generated schemas). Keep the icon set tracked.
+src-tauri/target/
+src-tauri/gen/
+!src-tauri/icons/*.png

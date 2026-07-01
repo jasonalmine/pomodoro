@@ -67,6 +67,13 @@ In **Authentication → URL Configuration**:
 - Add your site URL: `https://pomodoro.jasonalmine.dev`
 - For local dev also add `http://localhost:5173`
 
+**Desktop (Tauri) app:** the magic *link* can't round-trip into the desktop app
+(its origin is `tauri://localhost`, which a browser can't open). Instead, **copy
+the login link from the email and paste it into the app** — it extracts the
+one-time token and signs you in. No email-template change is needed. (Optionally,
+if you add `{{ .Token }}` to the Magic Link template, the email also carries a
+6-digit code you can type instead.)
+
 ### 4. Grab the credentials
 
 In **Project Settings → API**:
@@ -90,7 +97,27 @@ For production (Vercel), add the same two variables under Project → Settings �
 npm run dev
 ```
 
-Open Settings, scroll to **Cloud sync**, enter your email, click "Send magic link". Click the link in your email. You're synced.
+Open Settings, scroll to **Cloud sync**, enter your email, click "Send code".
+On the web, click the link in your email. In the desktop app, copy the login
+link from the email, paste it into the field, and click "Sign in". You're synced.
+
+## Desktop app (Tauri menu bar)
+
+The desktop shell reuses the exact same web app and sync engine, so your data
+flows across web and desktop automatically once both sign into the same Supabase
+project.
+
+- **Env at build time.** `npm run tauri:dev` / `tauri:build` run `vite`, which
+  reads `.env` / `.env.local`. Copy `.env.example` to `.env` and fill in the same
+  `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` your web app uses. Without
+  them the desktop app runs local-only (Cloud sync shows "not configured").
+- **Sign in by pasting the login link** from the email (see section 3 above) — the
+  link can't complete by clicking, but the app reads the token out of it.
+- **Google Calendar export.** The Maton API key is an on-device secret (stored in
+  this app's IndexedDB, never synced), so re-enter it once in the desktop app's
+  Settings → Calendar. Focus blocks already exported from the web carry their
+  `calendarEventId` through Supabase sync, so the desktop won't create duplicate
+  calendar events — only new blocks are pushed.
 
 ## How it works
 

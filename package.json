@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
     "db:new": "supabase migration new",
     "db:push": "supabase db push --linked",
     "db:status": "supabase migration list --linked"
@@ -17,6 +20,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@supabase/supabase-js": "^2.105.4",
+    "@tauri-apps/api": "^2.11.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dexie": "^4.4.2",
@@ -29,6 +33,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

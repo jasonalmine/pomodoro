@@ -6,7 +6,7 @@ import { useSettings, updateSettings, updateCalendarSync } from '../hooks/useSet
 import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
-import { signInWithEmail, signOut, syncNow } from '../lib/sync'
+import { signInWithEmail, verifyEmailOtp, signOut, syncNow } from '../lib/sync'
 import { DEFAULT_MODELS, PROVIDER_META } from '../lib/ai'
 import {
   backfillRecent,
@@ -569,6 +569,8 @@ function CalendarSyncSection() {
 function CloudSyncSection() {
   const sync = useSync()
   const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [codeSent, setCodeSent] = useState(false)
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -592,9 +594,26 @@ function CloudSyncSection() {
     setStatus(null)
     try {
       await signInWithEmail(email.trim())
-      setStatus({ kind: 'ok', text: `Magic link sent to ${email.trim()}. Check your inbox.` })
+      setCodeSent(true)
+      setStatus({ kind: 'ok', text: `Email sent to ${email.trim()}. In the browser you can click the link; in the desktop app, copy the login link (or code) from the email and paste it below.` })
     } catch (e) {
-      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Failed to send link.' })
+      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Failed to send email.' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onVerifyCode = async () => {
+    if (!email.trim() || !code.trim()) return
+    setBusy(true)
+    setStatus(null)
+    try {
+      await verifyEmailOtp(email.trim(), code.trim())
+      setCode('')
+      setCodeSent(false)
+      // onAuthStateChange in useSync flips to signed-in and kicks off the first sync.
+    } catch (e) {
+      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Invalid or expired link or code.' })
     } finally {
       setBusy(false)
     }
@@ -644,7 +663,7 @@ function CloudSyncSection() {
             Cloud sync is configured but you're <span className="font-medium">not signed in</span>. Your data lives only in this browser. Sign in below to start backing it up.
           </div>
           <p className="text-xs text-ink-500">
-            Sign in to back up your data and access it on every device. We'll email you a magic link, no password.
+            Sign in to back up your data and access it on every device, no password. We'll email a login link. On the web, click it. In the desktop app, copy the link from the email and paste it below (a 6-digit code works too if your email includes one).
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <input
@@ -655,9 +674,24 @@ function CloudSyncSection() {
               className="flex-1 rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
             />
             <Button onClick={onSendLink} disabled={busy || !email.trim()}>
-              {busy ? 'Sending…' : 'Send magic link'}
+              {busy ? 'Sending…' : codeSent ? 'Resend' : 'Send code'}
             </Button>
           </div>
+          {codeSent && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={e => setCode(e.target.value)}
+                placeholder="Paste login link or 6-digit code"
+                className="flex-1 rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+              />
+              <Button onClick={onVerifyCode} disabled={busy || !code.trim()}>
+                {busy ? 'Verifying…' : 'Sign in'}
+              </Button>
+            </div>
+          )}
         </>
       )}
       {(status || sync.lastError) && (

@@ -6,6 +6,7 @@ import { useTheme } from './hooks/useTheme'
 import { useSync } from './hooks/useSync'
 import { usePageTitle } from './hooks/usePageTitle'
 import { useFaviconTimer } from './hooks/useFaviconTimer'
+import { useTrayTimer } from './hooks/useTrayTimer'
 import { useTimer } from './store/timer'
 import { Nav } from './components/Nav'
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt'
@@ -21,6 +22,7 @@ function Shell() {
   useSync()
   usePageTitle()
   useFaviconTimer()
+  useTrayTimer()
   useEffect(() => { void ensureSeed() }, [])
 
   const phase = useTimer(s => s.phase)

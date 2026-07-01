@@ -1,7 +1,7 @@
 // Supabase sync adapter. Dexie is the local cache; Supabase is the source of truth.
 // Last-write-wins via updatedAt (epoch ms). Settings are stored as a JSON blob.
 
-import type { User } from '@supabase/supabase-js'
+import type { User, EmailOtpType } from '@supabase/supabase-js'
 import { db } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
 import { deletePomodoroCalendarEvent } from './calendar'
@@ -337,6 +337,50 @@ export async function signInWithEmail(email: string): Promise<void> {
   const { error } = await supabase.auth.signInWithOtp({
     email,
     options: { emailRedirectTo: window.location.origin },
+  })
+  if (error) throw toError(error)
+}
+
+// Complete sign-in from the OTP email. The magic *link* can't round-trip into the
+// desktop shell (its origin is tauri://localhost, which a browser can't open), so
+// `input` accepts either:
+//   1. the full login link pasted from the email (we pull the token out of it), or
+//   2. a 6-digit code (if the email template exposes {{ .Token }}).
+// Both also work on the web. No Supabase email-template change is required for (1).
+export async function verifyEmailOtp(email: string, input: string): Promise<void> {
+  if (!supabase) throw new Error('Cloud sync is not configured.')
+  const trimmed = input.trim()
+
+  // Pasted login link → extract the one-time token / session from the URL.
+  if (/^https?:\/\//i.test(trimmed) || trimmed.includes('token')) {
+    let u: URL | null
+    try { u = new URL(trimmed) } catch { u = null }
+    if (u) {
+      // Some links deliver an already-minted session in the hash fragment.
+      const hash = new URLSearchParams(u.hash.replace(/^#/, ''))
+      const access_token = hash.get('access_token')
+      const refresh_token = hash.get('refresh_token')
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token })
+        if (error) throw toError(error)
+        return
+      }
+      // Otherwise it's a verify link carrying a one-time token hash.
+      const token_hash = u.searchParams.get('token_hash') || u.searchParams.get('token')
+      const type = (u.searchParams.get('type') || 'email') as EmailOtpType
+      if (token_hash) {
+        const { error } = await supabase.auth.verifyOtp({ token_hash, type })
+        if (error) throw toError(error)
+        return
+      }
+    }
+  }
+
+  // Fall back to treating the input as a 6-digit code.
+  const { error } = await supabase.auth.verifyOtp({
+    email: email.trim(),
+    token: trimmed,
+    type: 'email',
   })
   if (error) throw toError(error)
 }
