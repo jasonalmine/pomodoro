@@ -14,11 +14,15 @@
       {
         "label": "main",
         "title": "Pomodoro",
-        "width": 1100,
-        "height": 820,
-        "minWidth": 380,
-        "minHeight": 600,
-        "visible": true
+        "width": 380,
+        "height": 560,
+        "minWidth": 360,
+        "minHeight": 480,
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": true
       }
     ],
     "security": {

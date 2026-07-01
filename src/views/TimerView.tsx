@@ -4,10 +4,8 @@ import { format, subDays } from 'date-fns'
 import { Pause, Play, Plus, Minus, SkipForward, X, Coffee, Moon, RotateCcw, Pencil, Sunrise } from 'lucide-react'
 import { useTimer, planFromSettings } from '../store/timer'
 import { useSettings } from '../hooks/useSettings'
-import { useTimerTick } from '../hooks/useTimerTick'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { useNotificationRequest, requestNotificationPermission } from '../hooks/useNotifications'
-import { useAudioEffects } from '../hooks/useAudioEffects'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
 import { db, listActiveProjects } from '../db'
 import { Button } from '../components/Button'
@@ -24,8 +22,6 @@ import { Bookmark, AlertTriangle, Zap } from 'lucide-react'
 import { useTabPresence } from '../hooks/useTabPresence'
 
 export function TimerView() {
-  useTimerTick()
-  useAudioEffects()
   useKeyboardShortcuts()
 
   const settings = useSettings()

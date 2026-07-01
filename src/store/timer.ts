@@ -274,12 +274,20 @@ export const useTimer = create<TimerState>((set, get) => ({
     if (s.phase === 'work' && s.isCompleting) return
     if (s.phase === 'flow') return // count-up, never auto-advances
     const elapsed = s.phaseElapsedSec + (nowSec() - s.phaseStartedAt)
-    // For metered phases (work / breaks), enter overflow at the boundary instead of advancing.
-    // Breathing keeps auto-advancing.
+    // Breathing auto-advances at the boundary.
     if (s.phase === 'breathing') {
       if (elapsed >= s.phaseDurationSec) advancePhase(set, get)
       return
     }
+    // Breaks always terminate at their boundary. Overtime is a focus-only
+    // concept; without this a finished break counts up forever (isOverflow)
+    // and never ends, which reads as the break "not terminating". advancePhase
+    // fires breakEnd, then goes idle or auto-starts the next focus block.
+    if (s.phase === 'shortBreak' || s.phase === 'longBreak') {
+      if (elapsed >= s.phaseDurationSec) advancePhase(set, get)
+      return
+    }
+    // Work: enter overflow at the boundary (unless strict mode advances).
     if (elapsed >= s.phaseDurationSec && !s.isOverflow) {
       // Strict mode (allowOvertime=false): advance immediately instead of
       // entering overflow. The advance path saves the Pomodoro / rolls into
@@ -709,7 +717,21 @@ function advancePhase(set: (p: Partial<TimerState>) => void, get: () => TimerSta
   clearBreathTimer()
   const plan = s.plan
   if (!plan) {
-    set({ phase: 'idle', isRunning: false })
+    // Standalone break (plan is null) hitting its boundary, or a stray advance.
+    // End cleanly: chime once (unless we already chimed at an overflow boundary)
+    // and fully reset so nothing keeps ticking.
+    if (s.phase === 'shortBreak' || s.phase === 'longBreak') {
+      if (!s.isOverflow) chime('breakEnd')
+    }
+    set({
+      phase: 'idle',
+      isRunning: false,
+      phaseDurationSec: 0,
+      phaseElapsedSec: 0,
+      phaseStartedAt: null,
+      breath: null,
+      isOverflow: false,
+    })
     return
   }
   switch (s.phase) {
