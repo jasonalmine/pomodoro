@@ -13,6 +13,7 @@ import { useTimer } from './store/timer'
 import { Nav } from './components/Nav'
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt'
 import { MenuBarPanel } from './components/MenuBarPanel'
+import { ConfirmHost } from './components/ConfirmDialog'
 import { TimerView } from './views/TimerView'
 import { CalendarView } from './views/CalendarView'
 import { InsightsView } from './views/InsightsView'
@@ -73,7 +74,12 @@ function Shell() {
     return () => { cancelled = true; un?.() }
   }, [])
 
-  return mode === 'panel' ? <MenuBarPanel /> : <FullApp />
+  return (
+    <>
+      {mode === 'panel' ? <MenuBarPanel /> : <FullApp />}
+      <ConfirmHost />
+    </>
+  )
 }
 
 export default function App() {

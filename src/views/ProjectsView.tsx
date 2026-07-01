@@ -21,6 +21,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { db, PROJECT_COLORS } from '../db'
 import { Button } from '../components/Button'
+import { confirmDialog } from '../lib/confirm'
 import { TaskDetailPanel } from '../components/TaskDetailPanel'
 import { fmtDuration } from '../lib/format'
 import { pomodorosByTask } from '../lib/stats'
@@ -133,7 +134,7 @@ export function ProjectsView() {
                   {p.archived ? <ArchiveRestore size={16} /> : <Archive size={16} />}
                 </Button>
                 <Button variant="ghost" size="sm" onClick={async () => {
-                  if (!confirm(`Delete project "${p.name}"? Past Pomodoros are kept.`)) return
+                  if (!(await confirmDialog(`Delete project "${p.name}"? Past Pomodoros are kept.`, { danger: true, confirmLabel: 'Delete' }))) return
                   await deleteProjectEverywhere(p.id)
                 }}>
                   <Trash2 size={16} className="text-rose-500" />
@@ -315,7 +316,7 @@ function TaskRow({ task, count, handle, onOpen }: { task: Task; count: number; h
   }
 
   const remove = async () => {
-    if (!confirm(`Delete task "${task.name}"?`)) return
+    if (!(await confirmDialog(`Delete task "${task.name}"?`, { danger: true, confirmLabel: 'Delete' }))) return
     await deleteTaskEverywhere(task.id)
   }
 

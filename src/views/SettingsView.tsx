@@ -17,6 +17,7 @@ import {
   verifyCalendarAccess,
 } from '../lib/calendar'
 import { Button } from '../components/Button'
+import { confirmDialog, promptDialog } from '../lib/confirm'
 import type { AiProvider, AmbientId, CalendarSyncSettings, Palette, ThemeMode } from '../types'
 
 export function SettingsView() {
@@ -164,7 +165,7 @@ export function SettingsView() {
 function NewTemplateButton() {
   const s = useSettings()
   const onClick = async () => {
-    const name = window.prompt('Template name (e.g. "Deep Work"):')?.trim()
+    const name = (await promptDialog('Template name (e.g. "Deep Work"):', { confirmLabel: 'Save' }))?.trim()
     if (!name) return
     const now = Date.now()
     await db.templates.put({
@@ -218,7 +219,7 @@ function TemplatesSection() {
               </div>
             </div>
             <Button variant="ghost" size="sm" onClick={async () => {
-              if (!confirm(`Delete template "${t.name}"?`)) return
+              if (!(await confirmDialog(`Delete template "${t.name}"?`, { danger: true, confirmLabel: 'Delete' }))) return
               await db.templates.delete(t.id)
             }}>
               <Trash2 size={14} className="text-rose-500" />
@@ -710,7 +711,7 @@ function DataSection() {
   const [merging, setMerging] = useState(false)
 
   const onMergeDuplicates = async () => {
-    if (!confirm('Merge projects that share a name? Their sessions and tasks are moved onto one project; the extra copies are deleted (kept for past records). This syncs to your other devices.')) return
+    if (!(await confirmDialog('Merge projects that share a name? Their sessions and tasks are moved onto one project; the extra copies are deleted (kept for past records). This syncs to your other devices.', { confirmLabel: 'Merge' }))) return
     setMerging(true)
     setStatus(null)
     try {
@@ -724,7 +725,7 @@ function DataSection() {
   }
 
   const onImport = async (file: File) => {
-    if (!confirm('Importing will REPLACE all current projects, sessions, and settings. Continue?')) return
+    if (!(await confirmDialog('Importing will REPLACE all current projects, sessions, and settings. Continue?', { danger: true, confirmLabel: 'Replace' }))) return
     setImporting(true)
     setStatus(null)
     try {

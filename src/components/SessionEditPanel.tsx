@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { CalendarDays, Trash2, X } from 'lucide-react'
 import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
+import { confirmDialog } from '../lib/confirm'
 import { fmtDuration } from '../lib/format'
 import { recentTags } from '../lib/stats'
 import { deletePomodoroEverywhere } from '../lib/sync'
@@ -146,7 +147,7 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
     const msg = pom?.calendarEventId
       ? 'Delete this Pomodoro? It will also be removed from your Google Calendar. This cannot be undone.'
       : 'Delete this Pomodoro? This cannot be undone.'
-    if (!confirm(msg)) return
+    if (!(await confirmDialog(msg, { danger: true, confirmLabel: 'Delete' }))) return
     setBusy(true)
     setError(null)
     try {
