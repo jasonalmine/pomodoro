@@ -600,6 +600,50 @@ export async function deleteProjectEverywhere(id: string): Promise<void> {
   if (error) throw toError(error)
 }
 
+// Merge same-named duplicate projects into one. For each group of active
+// projects sharing a name (case-insensitive), the one with the most records
+// (tiebreak: oldest) is kept; every other project's pomodoros and tasks are
+// reassigned to it, then those duplicates are tombstoned. This cleans up the
+// classic "two Deep Work projects after first sync" case. Returns how many
+// duplicate projects were removed.
+export async function mergeDuplicateProjects(): Promise<{ merged: number }> {
+  const all = (await db.projects.toArray()).filter(p => !p.deletedAt)
+  const groups = new Map<string, Project[]>()
+  for (const p of all) {
+    const key = p.name.trim().toLowerCase()
+    const arr = groups.get(key) ?? []
+    arr.push(p)
+    groups.set(key, arr)
+  }
+
+  const now = Date.now()
+  let merged = 0
+  for (const arr of groups.values()) {
+    if (arr.length < 2) continue
+    const withCounts = await Promise.all(arr.map(async p => {
+      const poms = await db.pomodoros.where('projectId').equals(p.id).filter(x => !x.deletedAt).count()
+      const tasks = await db.tasks.where('projectId').equals(p.id).filter(x => !x.deletedAt).count()
+      return { p, records: poms + tasks }
+    }))
+    // Keep the richest project; oldest wins ties.
+    withCounts.sort((a, b) => b.records - a.records || a.p.createdAt - b.p.createdAt)
+    const canonical = withCounts[0].p
+    for (const { p: dup } of withCounts.slice(1)) {
+      const poms = await db.pomodoros.where('projectId').equals(dup.id).toArray()
+      for (const pom of poms) await db.pomodoros.update(pom.id, { projectId: canonical.id, updatedAt: now })
+      const tasks = await db.tasks.where('projectId').equals(dup.id).toArray()
+      for (const t of tasks) await db.tasks.update(t.id, { projectId: canonical.id, updatedAt: now })
+      await deleteProjectEverywhere(dup.id)
+      merged++
+    }
+  }
+
+  if (merged > 0 && supabaseEnabled) {
+    try { await syncNow() } catch { /* reassignment errors surface via state */ }
+  }
+  return { merged }
+}
+
 export async function syncNow(): Promise<void> {
   if (!supabaseEnabled || syncing) return
   const user = await getCurrentUser()

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Bookmark, CalendarDays, Cloud, CloudOff, Download, FileDown, LogOut, RefreshCw, Sparkles, Trash2, Upload } from 'lucide-react'
+import { Bookmark, CalendarDays, Cloud, CloudOff, Download, FileDown, Layers, LogOut, RefreshCw, Sparkles, Trash2, Upload } from 'lucide-react'
 import { BREATH_PATTERNS, db } from '../db'
 import { useSettings, updateSettings, updateCalendarSync } from '../hooks/useSettings'
 import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
-import { signInWithEmail, verifyEmailOtp, signOut, syncNow } from '../lib/sync'
+import { signInWithEmail, verifyEmailOtp, signOut, syncNow, mergeDuplicateProjects } from '../lib/sync'
 import { DEFAULT_MODELS, PROVIDER_META } from '../lib/ai'
 import {
   backfillRecent,
@@ -707,6 +707,21 @@ function DataSection() {
   const fileRef = useRef<HTMLInputElement | null>(null)
   const [status, setStatus] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
   const [importing, setImporting] = useState(false)
+  const [merging, setMerging] = useState(false)
+
+  const onMergeDuplicates = async () => {
+    if (!confirm('Merge projects that share a name? Their sessions and tasks are moved onto one project; the extra copies are deleted (kept for past records). This syncs to your other devices.')) return
+    setMerging(true)
+    setStatus(null)
+    try {
+      const { merged } = await mergeDuplicateProjects()
+      setStatus({ kind: 'ok', text: merged > 0 ? `Merged ${merged} duplicate project${merged === 1 ? '' : 's'}.` : 'No duplicate projects found.' })
+    } catch (e) {
+      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Merge failed.' })
+    } finally {
+      setMerging(false)
+    }
+  }
 
   const onImport = async (file: File) => {
     if (!confirm('Importing will REPLACE all current projects, sessions, and settings. Continue?')) return
@@ -741,6 +756,9 @@ function DataSection() {
         </Button>
         <Button variant="ghost" onClick={() => fileRef.current?.click()} disabled={importing}>
           <Upload size={16} /> {importing ? 'Importing…' : 'Import JSON'}
+        </Button>
+        <Button variant="ghost" onClick={() => void onMergeDuplicates()} disabled={merging}>
+          <Layers size={16} /> {merging ? 'Merging…' : 'Merge duplicates'}
         </Button>
         <input
           ref={fileRef}
