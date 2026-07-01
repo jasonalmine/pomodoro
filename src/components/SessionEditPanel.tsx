@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { format } from 'date-fns'
 import { CalendarDays, Trash2, X } from 'lucide-react'
-import { db } from '../db'
+import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
 import { fmtDuration } from '../lib/format'
 import { recentTags } from '../lib/stats'
@@ -16,7 +16,7 @@ import type { Pomodoro, Project } from '../types'
 // flag. Used by both the Insights daily timeline and the Calendar day view.
 export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; onClose: () => void }) {
   const pom = useLiveQuery(() => db.pomodoros.get(pomodoroId), [pomodoroId])
-  const allProjects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const allProjects = useLiveQuery(() => listActiveProjects(), [], [])
   const activeProjects: Project[] = useMemo(
     () => (allProjects ?? []).filter(p => !p.archived),
     [allProjects],

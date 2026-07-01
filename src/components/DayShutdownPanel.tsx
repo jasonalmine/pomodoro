@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { format, startOfDay } from 'date-fns'
 import { X } from 'lucide-react'
-import { db } from '../db'
+import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
 import type { DayShutdown, Project } from '../types'
 
@@ -13,7 +13,7 @@ export function todayShutdownId(now = new Date()): string {
 export function DayShutdownPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
   const id = todayShutdownId(now)
   const existing = useLiveQuery(() => db.dayShutdowns.get(id), [id])
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const activeProjects: Project[] = (projects ?? []).filter(p => !p.archived)
 
   const [wins, setWins] = useState('')

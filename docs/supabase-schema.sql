@@ -20,7 +20,8 @@ create table if not exists projects (
   description text,
   archived boolean default false,
   created_at bigint not null,
-  updated_at bigint not null
+  updated_at bigint not null,
+  deleted_at bigint
 );
 
 alter table projects enable row level security;

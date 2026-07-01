@@ -9,7 +9,7 @@ import { useWakeLock } from '../hooks/useWakeLock'
 import { useNotificationRequest, requestNotificationPermission } from '../hooks/useNotifications'
 import { useAudioEffects } from '../hooks/useAudioEffects'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
-import { db } from '../db'
+import { db, listActiveProjects } from '../db'
 import { Button } from '../components/Button'
 import { RingTimer } from '../components/RingTimer'
 import { GoalRing } from '../components/GoalRing'
@@ -63,7 +63,7 @@ export function TimerView() {
 
   const [mode, setMode] = useState<IdleMode>('focus')
 
-  const allProjects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const allProjects = useLiveQuery(() => listActiveProjects(), [], [])
   const active = useMemo(() => (allProjects ?? []).filter(p => !p.archived), [allProjects])
 
   const today = todayBounds()
@@ -844,7 +844,7 @@ function ReflectionPanel() {
   const [tags, setTags] = useState<string[]>([])
   const [tagDraft, setTagDraft] = useState('')
   const pom = useLiveQuery(async () => (lastId ? await db.pomodoros.get(lastId) : undefined), [lastId])
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const project = pom ? (projects ?? []).find(p => p.id === pom.projectId) : null
   const allPoms = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).toArray(), [], [])
   const recentTagOptions = useMemo(

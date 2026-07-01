@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { DayNote, DayShutdown, Pomodoro, Project, Settings, Task, Template, WeeklyReview } from '../types'
+import { supabaseEnabled } from '../lib/supabase'
 
 class PomodoroDB extends Dexie {
   projects!: Table<Project, string>
@@ -170,16 +171,31 @@ export async function ensureSeed() {
   if (!existing) {
     await db.settings.put(DEFAULT_SETTINGS)
   }
-  const projectCount = await db.projects.count()
-  if (projectCount === 0) {
-    const now = Date.now()
-    await db.projects.put({
-      id: crypto.randomUUID(),
-      name: 'Deep Work',
-      color: '#ff6a37',
-      archived: false,
-      createdAt: now,
-      updatedAt: now,
-    })
+  // Seed the default project immediately ONLY when there's no cloud sync that
+  // could import an existing default. With sync configured we defer to
+  // seedDefaultProjectIfEmpty(), called after the first pull (see syncNow), so
+  // we don't create a second "Deep Work" that collides with the account's own.
+  if (!supabaseEnabled) {
+    await seedDefaultProjectIfEmpty()
   }
+}
+
+export async function seedDefaultProjectIfEmpty() {
+  const projectCount = await db.projects.count()
+  if (projectCount > 0) return
+  const now = Date.now()
+  await db.projects.put({
+    id: crypto.randomUUID(),
+    name: 'Deep Work',
+    color: '#ff6a37',
+    archived: false,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
+// Active (non-tombstoned) projects. Use for every surface that lists or offers
+// projects to pick, so soft-deleted projects disappear across devices.
+export function listActiveProjects(): Promise<Project[]> {
+  return db.projects.filter(p => !p.deletedAt).toArray()
 }

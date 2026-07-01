@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, isToday } from 'date-fns'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { db } from '../db'
+import { db, listActiveProjects } from '../db'
 import { fmtClock, fmtDuration } from '../lib/format'
 import { ProjectChip } from '../components/ProjectChip'
 import { Button } from '../components/Button'
@@ -44,7 +44,7 @@ export function CalendarView() {
     [rangeStart.getTime(), rangeEnd.getTime()],
     [],
   )
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const projectMap = useMemo(() => new Map((projects ?? []).map(p => [p.id, p])), [projects])
 
   const byDay = useMemo(() => {

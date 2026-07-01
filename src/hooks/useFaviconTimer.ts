@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTimer, remainingSec } from '../store/timer'
-import { db } from '../db'
+import { listActiveProjects } from '../db'
 
 const SIZE = 64
 const STROKE = 8
@@ -76,7 +76,7 @@ function reset() {
 export function useFaviconTimer() {
   const phase = useTimer(s => s.phase)
   const isRunning = useTimer(s => s.isRunning)
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const ranOnceRef = useRef(false)
 
   useEffect(() => {

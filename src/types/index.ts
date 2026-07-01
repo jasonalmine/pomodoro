@@ -113,6 +113,8 @@ export type Project = {
   weeklyGoalSeconds?: number
   createdAt: number
   updatedAt: number
+  // Soft-delete tombstone (epoch ms). Non-null → treat as deleted everywhere.
+  deletedAt?: number
 }
 
 export type Pomodoro = {

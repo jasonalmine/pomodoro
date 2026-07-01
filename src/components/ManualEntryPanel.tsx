@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { format } from 'date-fns'
 import { X } from 'lucide-react'
-import { db } from '../db'
+import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
 import { fmtDuration } from '../lib/format'
 import { recentTasks } from '../lib/stats'
@@ -10,7 +10,7 @@ import { syncPomodoroToCalendar } from '../lib/calendar'
 import type { Pomodoro, Project } from '../types'
 
 export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const activeProjects: Project[] = useMemo(() => (projects ?? []).filter(p => !p.archived), [projects])
   const recent = useLiveQuery(() => db.pomodoros.orderBy('startedAt').reverse().filter(p => !p.deletedAt).limit(30).toArray(), [], [])
   const recentChips = useMemo(() => recentTasks(recent ?? [], 4), [recent])

@@ -2,7 +2,7 @@
 // Last-write-wins via updatedAt (epoch ms). Settings are stored as a JSON blob.
 
 import type { User, EmailOtpType } from '@supabase/supabase-js'
-import { db } from '../db'
+import { db, seedDefaultProjectIfEmpty } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
 import { deletePomodoroCalendarEvent } from './calendar'
 import type { DayNote, DayShutdown, Pomodoro, Project, Task, Template } from '../types'
@@ -19,6 +19,7 @@ type ProjectRow = {
   weekly_goal_seconds: number | null
   created_at: number
   updated_at: number
+  deleted_at: number | null
 }
 
 type PomodoroRow = {
@@ -107,6 +108,7 @@ function projectToRow(p: Project, userId: string): ProjectRow {
     weekly_goal_seconds: p.weeklyGoalSeconds && p.weeklyGoalSeconds > 0 ? p.weeklyGoalSeconds : null,
     created_at: p.createdAt,
     updated_at: p.updatedAt,
+    deleted_at: p.deletedAt ?? null,
   }
 }
 
@@ -120,6 +122,7 @@ function rowToProject(r: ProjectRow): Project {
     weeklyGoalSeconds: r.weekly_goal_seconds ?? undefined,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    deletedAt: r.deleted_at ?? undefined,
   }
 }
 
@@ -582,6 +585,21 @@ export async function deleteTaskEverywhere(id: string): Promise<void> {
   if (error) throw toError(error)
 }
 
+// Soft-delete a Project. Mirrors deleteTaskEverywhere. Past Pomodoros/tasks that
+// referenced the project are kept (their own tombstones are separate); reading
+// code treats a project with `deletedAt != null` as gone.
+export async function deleteProjectEverywhere(id: string): Promise<void> {
+  const now = Date.now()
+  await db.projects.update(id, { deletedAt: now, updatedAt: now })
+  if (!supabase) return
+  const user = await getCurrentUser()
+  if (!user) return
+  const local = await db.projects.get(id)
+  if (!local) return
+  const { error } = await supabase.from('projects').upsert(projectToRow(local, user.id), { onConflict: 'id' })
+  if (error) throw toError(error)
+}
+
 export async function syncNow(): Promise<void> {
   if (!supabaseEnabled || syncing) return
   const user = await getCurrentUser()
@@ -594,6 +612,10 @@ export async function syncNow(): Promise<void> {
     await pushDirty(user.id, since)
     const maxPulled = await pullSince(user.id, since)
     setLastSyncedAt(Math.max(since, maxPulled, Date.now()))
+    // Deferred default-project seed: only fires for a genuinely empty account
+    // (see ensureSeed). Runs after the pull so we never duplicate the account's
+    // own default. No-op once any project exists (tombstones count).
+    await seedDefaultProjectIfEmpty()
   } catch (e) {
     lastError = e instanceof Error ? e.message : String(e)
     throw e

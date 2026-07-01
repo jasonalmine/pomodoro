@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { eachDayOfInterval, format, subDays } from 'date-fns'
 import { Moon, Sparkles, RefreshCw } from 'lucide-react'
-import { db } from '../db'
+import { db, listActiveProjects } from '../db'
 import { fmtDuration } from '../lib/format'
 import {
   completionRate,
@@ -38,7 +38,7 @@ export function InsightsView() {
     [],
     [],
   )
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const poms = pomodoros ?? []
   const projs = projects ?? []
 
@@ -276,7 +276,7 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
   const weekKey = useMemo(() => currentWeekKey(weekStart), [weekStart])
   const cached = useLiveQuery(() => db.weeklyReviews.get(weekKey), [weekKey])
   const tasks = useLiveQuery(() => db.tasks.filter(t => !t.deletedAt).toArray(), [], [])
-  const projects = useLiveQuery(() => db.projects.toArray(), [], [])
+  const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const shutdowns = useLiveQuery(() => db.dayShutdowns.toArray(), [], [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

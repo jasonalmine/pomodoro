@@ -24,7 +24,7 @@ import { Button } from '../components/Button'
 import { TaskDetailPanel } from '../components/TaskDetailPanel'
 import { fmtDuration } from '../lib/format'
 import { pomodorosByTask } from '../lib/stats'
-import { deleteTaskEverywhere } from '../lib/sync'
+import { deleteTaskEverywhere, deleteProjectEverywhere } from '../lib/sync'
 import type { Pomodoro, Project, Task } from '../types'
 
 type Totals = { allTime: number; last30: number; count: number }
@@ -43,7 +43,7 @@ function buildTotals(pomodoros: Pomodoro[]): Map<string, Totals> {
 }
 
 export function ProjectsView() {
-  const projects = useLiveQuery(() => db.projects.orderBy('createdAt').reverse().toArray(), [], [])
+  const projects = useLiveQuery(() => db.projects.orderBy('createdAt').reverse().filter(p => !p.deletedAt).toArray(), [], [])
   const pomodoros = useLiveQuery(() => db.pomodoros.filter(p => !p.deletedAt).toArray(), [], [])
   const tasks = useLiveQuery(() => db.tasks.orderBy('createdAt').filter(t => !t.deletedAt).toArray(), [], [])
   const totals = useMemo(() => buildTotals(pomodoros ?? []), [pomodoros])
@@ -134,7 +134,7 @@ export function ProjectsView() {
                 </Button>
                 <Button variant="ghost" size="sm" onClick={async () => {
                   if (!confirm(`Delete project "${p.name}"? Past Pomodoros are kept.`)) return
-                  await db.projects.delete(p.id)
+                  await deleteProjectEverywhere(p.id)
                 }}>
                   <Trash2 size={16} className="text-rose-500" />
                 </Button>
