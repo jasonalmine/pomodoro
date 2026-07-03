@@ -11,6 +11,7 @@ function ensureCtx(): AudioContext {
     master = null
     ambientNode = null
     breathOsc = null
+    keepAliveNode = null
   }
   if (!ctx) {
     ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
@@ -24,8 +25,51 @@ function ensureCtx(): AudioContext {
   return ctx
 }
 
+// A suspended context has a frozen clock: tones scheduled on it play late
+// (bunched together on the next user gesture) or never. WebKit suspends the
+// context whenever it feels like it — especially with the window hidden,
+// which is exactly when boundary cues fire in the menu-bar app. Resume
+// first, then schedule against a fresh currentTime; drop the cue if the
+// context won't resume within a beat (a stale chime minutes later is worse
+// than a missed one — notifications cover that path).
+function withRunningCtx(play: (c: AudioContext) => void) {
+  const c = ensureCtx()
+  if (c.state === 'running') {
+    play(c)
+    return
+  }
+  let expired = false
+  const timeout = setTimeout(() => { expired = true }, 3000)
+  c.resume().then(() => {
+    clearTimeout(timeout)
+    if (!expired && c.state === 'running') play(c)
+  }).catch(() => clearTimeout(timeout))
+}
+
 export function unlockAudio() {
   ensureCtx()
+}
+
+let keepAliveNode: { src: ConstantSourceNode; gain: GainNode } | null = null
+
+// Hold the context in the running state for the duration of a session so
+// cues fired from a hidden window aren't scheduled on a suspended clock.
+// Inaudible: a constant source into a zero gain.
+export function setKeepAlive(on: boolean) {
+  if (on) {
+    const c = ensureCtx()
+    if (keepAliveNode) return
+    const src = c.createConstantSource()
+    const gain = c.createGain()
+    gain.gain.value = 0
+    src.connect(gain).connect(c.destination)
+    src.start()
+    keepAliveNode = { src, gain }
+  } else if (keepAliveNode) {
+    try { keepAliveNode.src.stop() } catch { /* already stopped */ }
+    keepAliveNode.gain.disconnect()
+    keepAliveNode = null
+  }
 }
 
 export function setMasterVolume(v: number, muted: boolean) {
@@ -33,73 +77,81 @@ export function setMasterVolume(v: number, muted: boolean) {
   if (master) master.gain.value = muted ? 0 : Math.max(0, Math.min(1, v))
 }
 
+// Boundary chimes fired from the timer store carry no explicit volume; they
+// follow the Settings "Chime" slider via applySettings.
+let chimeDefaultVolume = 0.8
+
 export function applySettings(s: AudioSettings) {
   setMasterVolume(s.master, s.muted)
   if (ambientNode) ambientNode.gain.gain.value = s.ambientVolume
+  chimeDefaultVolume = s.chimeVolume
 }
 
-export type ChimeKind = 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime'
+export type ChimeKind = 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakNudge'
 
-export function chime(kind: ChimeKind = 'start', volume = 0.8) {
-  const c = ensureCtx()
-  if (!master) return
-  const now = c.currentTime
+export function chime(kind: ChimeKind = 'start', volume?: number) {
+  const vol = volume ?? chimeDefaultVolume
+  withRunningCtx(c => {
+    if (!master) return
+    const now = c.currentTime
 
-  // Overtime crossing: single soft bell (E5). Slower attack/decay for a
-  // subtler "you crossed the line" cue vs. the bigger workEnd/breakEnd
-  // arpeggios that fire at actual completion.
-  if (kind === 'focusOvertime') {
-    const f = 659.25 // E5
-    const o = c.createOscillator()
-    const g = c.createGain()
-    o.type = 'sine'
-    o.frequency.value = f
-    const dur = 0.85
-    g.gain.setValueAtTime(0.0001, now)
-    g.gain.exponentialRampToValueAtTime(volume * 0.3, now + 0.08)
-    g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
-    o.connect(g).connect(master!)
-    o.start(now)
-    o.stop(now + dur + 0.05)
-    return
-  }
+    // Single soft bell, distinct pitch per meaning: E5 = focus ran past its
+    // plan, D4 = a break is waiting or over. Slower attack/decay for a
+    // subtler cue vs. the bigger workEnd/breakEnd arpeggios.
+    if (kind === 'focusOvertime' || kind === 'breakNudge') {
+      const f = kind === 'focusOvertime' ? 659.25 : 293.66 // E5 vs D4
+      const o = c.createOscillator()
+      const g = c.createGain()
+      o.type = 'sine'
+      o.frequency.value = f
+      const dur = 0.85
+      g.gain.setValueAtTime(0.0001, now)
+      g.gain.exponentialRampToValueAtTime(vol * 0.3, now + 0.08)
+      g.gain.exponentialRampToValueAtTime(0.0001, now + dur)
+      o.connect(g).connect(master!)
+      o.start(now)
+      o.stop(now + dur + 0.05)
+      return
+    }
 
-  const freqs =
-    kind === 'workEnd' ? [880, 660, 523] :
-    kind === 'breakEnd' ? [523, 660, 880] :
-    kind === 'tick' ? [1320] :
-    [660, 880]
-  const dur = kind === 'tick' ? 0.05 : 0.35
-  freqs.forEach((f, i) => {
-    const o = c.createOscillator()
-    const g = c.createGain()
-    o.type = 'sine'
-    o.frequency.value = f
-    const start = now + i * (kind === 'tick' ? 0 : 0.08)
-    g.gain.setValueAtTime(0.0001, start)
-    g.gain.exponentialRampToValueAtTime(volume * 0.5, start + 0.02)
-    g.gain.exponentialRampToValueAtTime(0.0001, start + dur)
-    o.connect(g).connect(master!)
-    o.start(start)
-    o.stop(start + dur + 0.05)
+    const freqs =
+      kind === 'workEnd' ? [880, 660, 523] :
+      kind === 'breakEnd' ? [523, 660, 880] :
+      kind === 'tick' ? [1320] :
+      [660, 880]
+    const dur = kind === 'tick' ? 0.05 : 0.35
+    freqs.forEach((f, i) => {
+      const o = c.createOscillator()
+      const g = c.createGain()
+      o.type = 'sine'
+      o.frequency.value = f
+      const start = now + i * (kind === 'tick' ? 0 : 0.08)
+      g.gain.setValueAtTime(0.0001, start)
+      g.gain.exponentialRampToValueAtTime(vol * 0.5, start + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur)
+      o.connect(g).connect(master!)
+      o.start(start)
+      o.stop(start + dur + 0.05)
+    })
   })
 }
 
 export function breathCue(direction: 'in' | 'out' | 'hold', volume = 0.5) {
-  const c = ensureCtx()
-  if (!master) return
   if (direction === 'hold') return
-  const o = c.createOscillator()
-  const g = c.createGain()
-  o.type = 'sine'
-  o.frequency.value = direction === 'in' ? 396 : 285
-  const now = c.currentTime
-  g.gain.setValueAtTime(0.0001, now)
-  g.gain.exponentialRampToValueAtTime(volume * 0.35, now + 0.15)
-  g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
-  o.connect(g).connect(master!)
-  o.start(now)
-  o.stop(now + 1)
+  withRunningCtx(c => {
+    if (!master) return
+    const o = c.createOscillator()
+    const g = c.createGain()
+    o.type = 'sine'
+    o.frequency.value = direction === 'in' ? 396 : 285
+    const now = c.currentTime
+    g.gain.setValueAtTime(0.0001, now)
+    g.gain.exponentialRampToValueAtTime(volume * 0.35, now + 0.15)
+    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.9)
+    o.connect(g).connect(master!)
+    o.start(now)
+    o.stop(now + 1)
+  })
 }
 
 function makeNoiseBuffer(c: AudioContext, kind: 'rain' | 'brown'): AudioBuffer {

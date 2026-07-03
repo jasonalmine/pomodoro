@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
-import { useTimer } from '../store/timer'
+import { overflowSec, useTimer } from '../store/timer'
 import { useSettings } from './useSettings'
-import { applySettings, breathCue, setAmbient, setAmbientVolume, setMasterVolume, unlockAudio } from '../audio/engine'
+import { applySettings, breathCue, chime, setAmbient, setAmbientVolume, setKeepAlive, setMasterVolume, unlockAudio } from '../audio/engine'
 import { notify } from './useNotifications'
+import type { Phase } from '../types'
 
 export function useAudioEffects() {
   const phase = useTimer(s => s.phase)
@@ -78,4 +79,80 @@ export function useAudioEffects() {
       window.removeEventListener('keydown', onGesture)
     }
   }, [])
+
+  // Keep the AudioContext running for the whole session so boundary cues
+  // fired while the window is hidden (menu-bar popover closed) aren't
+  // scheduled on a suspended clock. Also re-resume whenever the window
+  // becomes visible or focused.
+  useEffect(() => {
+    setKeepAlive(phase !== 'idle')
+    return () => setKeepAlive(false)
+  }, [phase])
+
+  useEffect(() => {
+    const onVisible = () => { if (!document.hidden) unlockAudio() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [])
+
+  // Gentle repeating cues, quieter than boundary chimes:
+  // - E5 bell every 2 minutes while a focus block runs in overtime.
+  // - D4 nudge (up to 3, 2 minutes apart) while a queued break sits
+  //   unstarted, or after a break ended and nothing was started.
+  const isRunning = useTimer(s => s.isRunning)
+  const overtimeBucketRef = useRef(0)
+  const nudgeKindRef = useRef<'queuedBreak' | 'postBreak' | null>(null)
+  const nudgeSinceRef = useRef(0)
+  const nudgeFiredRef = useRef(0)
+  const prevReminderPhaseRef = useRef<Phase>(phase)
+
+  useEffect(() => {
+    const prev = prevReminderPhaseRef.current
+    prevReminderPhaseRef.current = phase
+    const s = useTimer.getState()
+    const isBreak = phase === 'shortBreak' || phase === 'longBreak'
+    const queuedBreak = isBreak && !isRunning && s.phaseStartedAt === null && s.phaseElapsedSec === 0
+    const endedIntoIdle = phase === 'idle' && (prev === 'shortBreak' || prev === 'longBreak')
+    if (queuedBreak && nudgeKindRef.current !== 'queuedBreak') {
+      nudgeKindRef.current = 'queuedBreak'
+      nudgeSinceRef.current = Date.now()
+      nudgeFiredRef.current = 0
+    } else if (endedIntoIdle) {
+      nudgeKindRef.current = 'postBreak'
+      nudgeSinceRef.current = Date.now()
+      nudgeFiredRef.current = 0
+    } else if (!queuedBreak && !(phase === 'idle' && nudgeKindRef.current === 'postBreak')) {
+      nudgeKindRef.current = null
+    }
+  }, [phase, isRunning])
+
+  useEffect(() => {
+    const REMIND_EVERY_MS = 2 * 60 * 1000
+    const id = setInterval(() => {
+      if (settings.audio.muted) return
+      const s = useTimer.getState()
+      const vol = settings.audio.chimeVolume * 0.6
+      if (s.phase === 'work' && s.isOverflow && s.isRunning) {
+        const bucket = Math.floor((overflowSec(s) * 1000) / REMIND_EVERY_MS)
+        if (bucket >= 1 && bucket > overtimeBucketRef.current) {
+          overtimeBucketRef.current = bucket
+          chime('focusOvertime', vol)
+        }
+      } else {
+        overtimeBucketRef.current = 0
+      }
+      if (nudgeKindRef.current) {
+        const bucket = Math.floor((Date.now() - nudgeSinceRef.current) / REMIND_EVERY_MS)
+        if (bucket >= 1 && bucket > nudgeFiredRef.current && nudgeFiredRef.current < 3) {
+          nudgeFiredRef.current = bucket
+          chime('breakNudge', vol)
+        }
+      }
+    }, 15000)
+    return () => clearInterval(id)
+  }, [settings.audio.muted, settings.audio.chimeVolume])
 }
