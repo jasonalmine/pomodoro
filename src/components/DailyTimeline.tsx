@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { fmtClock, fmtDuration } from '../lib/format'
+import { overtimeSec } from '../lib/stats'
 import { ProjectChip } from './ProjectChip'
 import { SessionEditPanel } from './SessionEditPanel'
 import type { Pomodoro, Project } from '../types'
@@ -55,6 +56,9 @@ export function DailyTimeline({ pomodoros, projects }: { pomodoros: Pomodoro[]; 
                     <span className="text-xs tabular text-ink-500">{fmtClock(p.startedAt)}</span>
                     <span className="text-xs tabular text-ink-400">·</span>
                     <span className="text-xs tabular text-ink-500">{fmtDuration(p.actualSeconds)}</span>
+                    {overtimeSec(p) > 0 && (
+                      <span className="text-[10px] tabular text-accent">+{fmtDuration(overtimeSec(p))}</span>
+                    )}
                     {!p.completed && (
                       <span className="text-[10px] uppercase tracking-wider text-rose-500">aborted</span>
                     )}

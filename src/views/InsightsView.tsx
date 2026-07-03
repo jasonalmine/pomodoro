@@ -6,11 +6,13 @@ import { db, listActiveProjects } from '../db'
 import { fmtDuration } from '../lib/format'
 import {
   completionRate,
+  focusByHour,
   lifetimeStats,
   projectTotals,
   streakDays,
   todayBounds,
   totalsInWindow,
+  weeklyTotals,
   weekRange,
   yearlyHeatmap,
 } from '../lib/stats'
@@ -19,6 +21,8 @@ import { GoalRing } from '../components/GoalRing'
 import { ProjectBars } from '../components/ProjectBars'
 import { DailyTimeline } from '../components/DailyTimeline'
 import { WeeklyStacks } from '../components/WeeklyStacks'
+import { WeekTrend } from '../components/WeekTrend'
+import { HourBars } from '../components/HourBars'
 import { YearHeatmap } from '../components/YearHeatmap'
 import { DayShutdownPanel, todayShutdownId } from '../components/DayShutdownPanel'
 import { DayNoteCard } from '../components/DayNoteCard'
@@ -48,18 +52,19 @@ export function InsightsView() {
 
   const todayStats = useMemo(() => totalsInWindow(poms, today.start, today.end), [poms, today.start, today.end])
   const weekStats = useMemo(() => totalsInWindow(poms, weekStart.getTime(), weekEnd.getTime()), [poms, weekStart, weekEnd])
-  const allTime = useMemo(() => ({ seconds: poms.reduce((a, p) => a + p.actualSeconds, 0), count: poms.length }), [poms])
 
   const weekDaysList = useMemo(() => eachDayOfInterval({ start: weekStart, end: weekEnd }), [weekStart, weekEnd])
   const last30 = useMemo(() => projectTotals(poms, projs, subDays(now, 30).getTime()), [poms, projs, now])
   const streak = useMemo(() => streakDays(poms, now), [poms, now])
-  const rate = useMemo(() => completionRate(poms), [poms])
 
   const todayPoms = useMemo(() => poms.filter(p => p.startedAt >= today.start && p.startedAt <= today.end), [poms, today.start, today.end])
   const weekPoms = useMemo(() => poms.filter(p => p.startedAt >= weekStart.getTime() && p.startedAt <= weekEnd.getTime()), [poms, weekStart, weekEnd])
+  const rate = useMemo(() => completionRate(weekPoms), [weekPoms])
 
   const lifetime = useMemo(() => lifetimeStats(poms, projs), [poms, projs])
   const heatmap = useMemo(() => yearlyHeatmap(poms, now), [poms, now])
+  const trend = useMemo(() => weeklyTotals(poms, 8, now), [poms, now])
+  const byHour = useMemo(() => focusByHour(poms, now.getTime() - 365 * 24 * 60 * 60 * 1000), [poms, now])
   const yearStats = useMemo(() => {
     const yearStart = new Date(now.getTime() - 364 * 24 * 60 * 60 * 1000)
     return totalsInWindow(poms, yearStart.getTime(), now.getTime())
@@ -110,24 +115,16 @@ export function InsightsView() {
       {view === 'today' && (
         <>
           <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatCard label="Today" sessions={todayStats.count} seconds={todayStats.seconds} accent />
-            <StatCard label="This Week" sessions={weekStats.count} seconds={weekStats.seconds} />
-            <StatCard label="All Time" sessions={allTime.count} seconds={allTime.seconds} />
-          </section>
-
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 flex items-center gap-5">
-            <GoalRing current={todayStats.count} goal={goal} size={72} />
-            <div className="flex-1">
-              <div className="text-xs uppercase tracking-wider text-ink-500">Daily goal</div>
-              <div className="font-display text-2xl text-ink-900 dark:text-ink-50 mt-0.5">
-                {todayStats.count} of {goal} Pomodoros
-              </div>
-              <div className="text-sm text-ink-500 mt-0.5">
-                {todayStats.count >= goal
-                  ? `Hit it. ${fmtDuration(todayStats.seconds)} focused today.`
-                  : `${goal - todayStats.count} more to go.`}
+            <div className="rounded-2xl border p-5 bg-accent/10 border-accent/30 dark:bg-accent/15 flex items-center gap-4">
+              <GoalRing current={todayStats.count} goal={goal} size={48} />
+              <div className="space-y-1 min-w-0">
+                <div className="text-xs uppercase tracking-wider text-accent-strong dark:text-accent-soft">Today</div>
+                <div className="font-display text-2xl text-ink-900 dark:text-ink-50 tabular">{fmtDuration(todayStats.seconds) || '0m'}</div>
+                <div className="text-xs text-ink-500">{todayStats.count} of {goal} Pomodoros</div>
               </div>
             </div>
+            <StatCard label="This Week" sessions={weekStats.count} seconds={weekStats.seconds} />
+            <StatCard label="Streak" sessions={0} seconds={0} customValue={`${streak} day${streak === 1 ? '' : 's'}`} hideSessions />
           </section>
 
           <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
@@ -142,10 +139,6 @@ export function InsightsView() {
             </div>
             <DailyTimeline pomodoros={todayPoms} projects={projs} />
           </section>
-
-          <ProjectsSection totals={last30} title="By project" subtitle="Last 30 days" />
-          <ProjectWeeklyGoals projects={projs} weekPoms={weekPoms} />
-          <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
 
           <DayNoteCard now={now} />
 
@@ -202,6 +195,14 @@ export function InsightsView() {
           </section>
 
           <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Trend</h2>
+              <span className="text-xs text-ink-500">Last 8 weeks</span>
+            </div>
+            <WeekTrend weeks={trend} />
+          </section>
+
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
             <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">This week</h2>
             <div className="text-xs text-ink-500">
               Mon {format(weekStart, 'MMM d')} – Sun {format(weekEnd, 'MMM d')} · each block is a Pomodoro, colored by project.
@@ -210,6 +211,7 @@ export function InsightsView() {
           </section>
 
           <ProjectsSection totals={last30} title="By project" subtitle="Last 30 days" />
+          <ProjectWeeklyGoals projects={projs} weekPoms={weekPoms} />
           <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
           <WeeklyReviewSection weekStart={weekStart} weekEnd={weekEnd} weekPoms={weekPoms} />
         </>
@@ -238,8 +240,6 @@ export function InsightsView() {
             title="By project (all time)"
             subtitle={`${lifetime.sessions} sessions total`}
           />
-
-          <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
         </>
       )}
 
@@ -257,12 +257,18 @@ export function InsightsView() {
             <YearHeatmap cells={heatmap} />
           </section>
 
-          <StreakAndRate streak={streak} rate={rate.rate} completed={rate.completed} total={rate.total} />
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+            <div className="flex items-baseline justify-between">
+              <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">When you focus</h2>
+              <span className="text-xs text-ink-500">Last 365 days, by start hour</span>
+            </div>
+            <HourBars seconds={byHour} />
+          </section>
         </>
       )}
 
       {shutdownOpen && <DayShutdownPanel onClose={() => setShutdownOpen(false)} now={now} />}
-      {manualOpen && <ManualEntryPanel onClose={() => setManualOpen(false)} now={now} />}
+      {manualOpen && <ManualEntryPanel onClose={() => setManualOpen(false)} />}
     </div>
   )
 }
@@ -433,7 +439,7 @@ function StreakAndRate({ streak, rate, completed, total }: { streak: number; rat
         </div>
       </div>
       <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5">
-        <div className="text-xs uppercase tracking-wider text-ink-500">Completion rate</div>
+        <div className="text-xs uppercase tracking-wider text-ink-500">Completion (this week)</div>
         <div className="font-display text-3xl text-ink-900 dark:text-ink-50 mt-1 tabular">
           {Math.round(rate * 100)}%
         </div>

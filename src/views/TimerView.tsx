@@ -13,6 +13,7 @@ import { RingTimer } from '../components/RingTimer'
 import { GoalRing } from '../components/GoalRing'
 import { BreathingCircle } from '../components/BreathingCircle'
 import { ProjectChip } from '../components/ProjectChip'
+import { ProjectChipPicker } from '../components/ProjectChipPicker'
 import { DurationStepper } from '../components/DurationStepper'
 import { WelcomeCard } from '../components/WelcomeCard'
 import { fmtDuration } from '../lib/format'
@@ -52,12 +53,15 @@ export function TimerView() {
   const sessionDistractions = useTimer(s => s.sessionDistractions)
   const addDistraction = useTimer(s => s.addDistraction)
   const planAllowOvertime = useTimer(s => s.plan?.allowOvertime ?? true)
+  const isOverflow = useTimer(s => s.isOverflow)
+  const planLongBreakEvery = useTimer(s => s.plan?.longBreakEvery ?? 4)
   const storedProjectId = useTimer(s => s.selectedProjectId)
   const setStoredProjectId = useTimer(s => s.setSelectedProjectId)
   const storedTaskId = useTimer(s => s.selectedTaskId)
   const setStoredTaskId = useTimer(s => s.setSelectedTaskId)
 
   const [mode, setMode] = useState<IdleMode>('focus')
+  const [breakKind, setBreakKind] = useState<'short' | 'long'>('short')
 
   const allProjects = useLiveQuery(() => listActiveProjects(), [], [])
   const active = useMemo(() => (allProjects ?? []).filter(p => !p.archived), [allProjects])
@@ -405,13 +409,32 @@ export function TimerView() {
           <div className="space-y-8 text-center">
             <div className="space-y-2">
               <h1 className="font-display text-3xl sm:text-4xl text-ink-900 dark:text-ink-50">
-                {mode === 'short' ? 'Take a short break' : 'Take a long break'}
+                {breakKind === 'short' ? 'Take a short break' : 'Take a long break'}
               </h1>
               <p className="text-sm text-ink-500">Step away. The timer will let you know when time is up.</p>
             </div>
 
             <div className="flex justify-center">
-              {mode === 'short' ? (
+              <div className="inline-flex items-center rounded-full bg-ink-100 dark:bg-ink-800 p-1">
+                {(['short', 'long'] as const).map(k => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setBreakKind(k)}
+                    className={`h-8 px-4 rounded-full text-xs font-medium transition ${
+                      breakKind === k
+                        ? 'bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 shadow-sm'
+                        : 'text-ink-500 hover:text-ink-700 dark:hover:text-ink-200'
+                    }`}
+                  >
+                    {k === 'short' ? 'Short' : 'Long'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-center">
+              {breakKind === 'short' ? (
                 <DurationStepper label="Short break" value={shortMinVal} onChange={setShortMin} min={1} max={60} step={1} />
               ) : (
                 <DurationStepper label="Long break" value={longMinVal} onChange={setLongMin} min={5} max={120} step={5} />
@@ -422,9 +445,9 @@ export function TimerView() {
               <Button
                 size="lg"
                 className="w-full max-w-sm"
-                onClick={() => startStandaloneBreak(mode === 'short' ? 'short' : 'long', mode === 'short' ? shortMinVal : longMinVal)}
+                onClick={() => startStandaloneBreak(breakKind, breakKind === 'short' ? shortMinVal : longMinVal)}
               >
-                {mode === 'short' ? 'Start Short Break' : 'Start Long Break'}
+                {breakKind === 'short' ? 'Start Short Break' : 'Start Long Break'}
               </Button>
             </div>
           </div>
@@ -445,6 +468,13 @@ export function TimerView() {
     : isBreakPhase
       ? `On a ${phase === 'longBreak' ? 'long' : 'short'} break`
       : (planTask || (phase === 'work' ? 'Focus session' : phase === 'flow' ? 'Flow session' : phase === 'breathing' ? 'Breathe' : ''))
+
+  // Projected end of the current phase. Constant while running (start + remaining
+  // planned), so no ticker needed; hidden when paused/overflowing where it would
+  // drift or mislead.
+  const endsAtText = isRunning && !isOverflow && phaseStartedAt != null && phaseDurationSec > 0 && phase !== 'flow'
+    ? ` · ends ~${format(new Date((phaseStartedAt + phaseDurationSec - phaseElapsedSec) * 1000), 'h:mm aaa')}`
+    : ''
 
   return (
     <div className="mx-auto w-full max-w-2xl min-h-screen p-4 sm:p-8 flex flex-col items-center justify-center text-center gap-8 relative">
@@ -508,10 +538,15 @@ export function TimerView() {
       </div>
 
       {phase !== 'breathing' && breath == null && (
-        <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">
-          {phase === 'work' && <>Pomodoro {workCount + 1} · {fmtDuration(phaseDurationSec)} planned</>}
-          {phase === 'flow' && <>Flow · counting up</>}
-          {isBreakPhase && !queuedBreak && <>{breakLabel} · {fmtDuration(phaseDurationSec)}</>}
+        <div className="flex flex-col items-center gap-2.5">
+          <div className="text-[11px] uppercase tracking-[0.18em] text-ink-400">
+            {phase === 'work' && <>Pomodoro {workCount + 1} · {fmtDuration(phaseDurationSec)} planned{endsAtText}</>}
+            {phase === 'flow' && <>Flow · counting up</>}
+            {isBreakPhase && !queuedBreak && <>{breakLabel} · {fmtDuration(phaseDurationSec)}{endsAtText}</>}
+          </div>
+          {phase === 'work' && planLongBreakEvery > 1 && (
+            <CycleDots total={planLongBreakEvery} done={workCount % planLongBreakEvery} />
+          )}
         </div>
       )}
 
@@ -576,34 +611,36 @@ export function TimerView() {
   )
 }
 
+// Position in the current cycle toward the long break: filled = completed
+// blocks, outlined = the one in progress.
+function CycleDots({ total, done }: { total: number; done: number }) {
+  return (
+    <div
+      className="flex items-center gap-1.5"
+      title={`${done} of ${total} until the long break`}
+      aria-label={`${done} of ${total} pomodoros until the long break`}
+    >
+      {Array.from({ length: total }, (_, i) => (
+        <span
+          key={i}
+          className={`h-1.5 w-1.5 rounded-full ${
+            i < done
+              ? 'bg-accent'
+              : i === done
+                ? 'border border-accent'
+                : 'bg-ink-200 dark:bg-ink-800'
+          }`}
+        />
+      ))}
+    </div>
+  )
+}
+
 function ProjectPicker({ projects, value, onChange }: { projects: Project[]; value: string; onChange: (id: string) => void }) {
   if (projects.length === 0) return null
   // Inline chip picker for ≤5; styled select for more.
   if (projects.length <= 5) {
-    return (
-      <div className="flex flex-wrap justify-center gap-2">
-        {projects.map(p => {
-          const selected = p.id === value
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onChange(p.id)}
-              className={
-                'inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm transition ' +
-                (selected
-                  ? 'border-transparent text-white shadow-sm'
-                  : 'border-ink-200 dark:border-ink-800 text-ink-600 dark:text-ink-300 hover:border-ink-300 dark:hover:border-ink-700')
-              }
-              style={selected ? { backgroundColor: p.color } : undefined}
-            >
-              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: selected ? 'rgba(255,255,255,0.85)' : p.color }} />
-              {p.name}
-            </button>
-          )
-        })}
-      </div>
-    )
+    return <ProjectChipPicker projects={projects} value={value} onChange={onChange} size="md" center />
   }
   const current = projects.find(p => p.id === value)
   return (
@@ -792,17 +829,16 @@ function ProjectSwitcher({ projects, value, onChange }: { projects: Project[]; v
   )
 }
 
-type IdleMode = 'focus' | 'flow' | 'short' | 'long'
+type IdleMode = 'focus' | 'flow' | 'break'
 
 function ModePicker({ mode, onChange }: { mode: IdleMode; onChange: (m: IdleMode) => void }) {
   const tabs: Array<{ key: IdleMode; label: string }> = [
     { key: 'focus', label: 'Focus' },
     { key: 'flow', label: 'Flow' },
-    { key: 'short', label: 'Short' },
-    { key: 'long', label: 'Long' },
+    { key: 'break', label: 'Break' },
   ]
   return (
-    <div className="grid grid-cols-4 rounded-xl bg-ink-100 dark:bg-ink-900 p-1 gap-1">
+    <div className="grid grid-cols-3 rounded-xl bg-ink-100 dark:bg-ink-900 p-1 gap-1">
       {tabs.map(t => (
         <button
           key={t.key}
@@ -839,6 +875,9 @@ function ReflectionPanel() {
   const [note, setNote] = useState('')
   const [tags, setTags] = useState<string[]>([])
   const [tagDraft, setTagDraft] = useState('')
+  // The quick path is one line + tags; "next" and the free-form note sit
+  // behind a disclosure so the after-every-Pomodoro modal stays light.
+  const [moreOpen, setMoreOpen] = useState(false)
   const pom = useLiveQuery(async () => (lastId ? await db.pomodoros.get(lastId) : undefined), [lastId])
   const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const project = pom ? (projects ?? []).find(p => p.id === pom.projectId) : null
@@ -915,7 +954,6 @@ function ReflectionPanel() {
 
       <div className="space-y-4">
         <PromptInput label="What did you finish?" value={done} onChange={setDone} placeholder="Shipped the calendar week view" />
-        <PromptInput label="What's next?" value={next} onChange={setNext} placeholder="Day-axis colour pass" />
 
         <div className="space-y-1.5">
           <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Tags (optional)</span>
@@ -964,15 +1002,28 @@ function ReflectionPanel() {
           )}
         </div>
 
-        <label className="block space-y-1.5">
-          <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Anything else (optional)</span>
-          <textarea
-            value={note} onChange={e => setNote(e.target.value)}
-            rows={3}
-            placeholder="A blocker, an idea, how it felt…"
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none focus:border-accent focus:ring-0 outline-none transition-colors"
-          />
-        </label>
+        {!moreOpen ? (
+          <button
+            type="button"
+            onClick={() => setMoreOpen(true)}
+            className="text-xs text-ink-400 hover:text-ink-700 dark:hover:text-ink-200 transition"
+          >
+            + Add more detail
+          </button>
+        ) : (
+          <>
+            <PromptInput label="What's next?" value={next} onChange={setNext} placeholder="Day-axis colour pass" />
+            <label className="block space-y-1.5">
+              <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Anything else (optional)</span>
+              <textarea
+                value={note} onChange={e => setNote(e.target.value)}
+                rows={3}
+                placeholder="A blocker, an idea, how it felt…"
+                className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none focus:border-accent focus:ring-0 outline-none transition-colors"
+              />
+            </label>
+          </>
+        )}
       </div>
 
       <div className="flex gap-3 max-w-md mx-auto">

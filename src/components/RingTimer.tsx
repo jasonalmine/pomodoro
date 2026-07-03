@@ -38,6 +38,11 @@ function phaseRingColor(phase: Phase): string {
 const R = 90
 const STROKE = 8
 const C = 2 * Math.PI * R
+// Overtime: the closed base ring says "plan done"; a thinner inner arc sweeps
+// the overshoot so planned vs over read as distinct geometry.
+const R_OVER = R - 14
+const STROKE_OVER = 4
+const C_OVER = 2 * Math.PI * R_OVER
 
 export function RingTimer() {
   const phase = useTimer(s => s.phase)
@@ -60,9 +65,14 @@ export function RingTimer() {
   const flowSweep = isFlow ? ((elapsed % 600) / 600) : 0
   const progress = isFlow
     ? flowSweep
-    : (phaseDurationSec > 0 ? Math.min(1, Math.max(0, 1 - remaining / phaseDurationSec)) : 0)
+    : isOverflow
+      ? 1
+      : (phaseDurationSec > 0 ? Math.min(1, Math.max(0, 1 - remaining / phaseDurationSec)) : 0)
   const offset = C * (1 - progress)
   const color = phaseRingColor(phase)
+  // Inner overshoot arc, capped at one full lap.
+  const overProgress = isOverflow && phaseDurationSec > 0 ? Math.min(1, overflow / phaseDurationSec) : 0
+  const overOffset = C_OVER * (1 - overProgress)
 
   // In overtime, show the TOTAL elapsed focus time (planned + overshoot),
   // not just the overshoot. The label still flags the overtime state.
@@ -93,19 +103,30 @@ export function RingTimer() {
           strokeLinecap="round"
           strokeDasharray={C}
           strokeDashoffset={offset}
-          style={{
-            transition: 'stroke-dashoffset 250ms linear',
-            opacity: isOverflow ? 0.45 : 1,
-          }}
+          style={{ transition: 'stroke-dashoffset 250ms linear' }}
         />
+        {isOverflow && (
+          <circle
+            cx="100" cy="100" r={R_OVER}
+            fill="none"
+            stroke={accentColor()}
+            strokeWidth={STROKE_OVER}
+            strokeLinecap="round"
+            strokeDasharray={C_OVER}
+            strokeDashoffset={overOffset}
+            style={{ transition: 'stroke-dashoffset 250ms linear' }}
+          />
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <div
-          className={`font-mono text-5xl sm:text-6xl font-bold tabular tracking-tight ${isOverflow ? 'text-accent' : 'text-ink-900 dark:text-ink-50'}`}
-          style={isOverflow ? { animation: 'pulse 2s ease-in-out infinite' } : undefined}
-        >
+        <div className="font-mono text-5xl sm:text-6xl font-bold tabular tracking-tight text-ink-900 dark:text-ink-50">
           {displayTime}
         </div>
+        {isOverflow && (
+          <div className="mt-1 font-mono text-sm font-semibold tabular text-accent">
+            +{fmtTime(overflow)}
+          </div>
+        )}
         <div className={`mt-2 text-[11px] font-medium uppercase tracking-[0.18em] ${isOverflow ? 'text-accent' : 'text-ink-400'}`}>
           {label}
         </div>

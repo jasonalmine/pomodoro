@@ -19,8 +19,9 @@ export function useKeyboardShortcuts() {
       const state = useTimer.getState()
       const { phase, isRunning, pause, resume, skip, abort, extend, adjustPhase } = state
 
-      // Only act during an active session (not idle, not reflect, not breathing prep)
-      const active = phase === 'work' || phase === 'shortBreak' || phase === 'longBreak'
+      // Only act during an active session (not idle, not reflect, not breathing prep).
+      // Flow counts: Space pauses, S wraps up, Esc ends; E stays metered-only below.
+      const active = phase === 'work' || phase === 'flow' || phase === 'shortBreak' || phase === 'longBreak'
       if (!active) return
 
       const key = e.key

@@ -38,19 +38,18 @@ export function applySettings(s: AudioSettings) {
   if (ambientNode) ambientNode.gain.gain.value = s.ambientVolume
 }
 
-export type ChimeKind = 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakOvertime'
+export type ChimeKind = 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime'
 
 export function chime(kind: ChimeKind = 'start', volume = 0.8) {
   const c = ensureCtx()
   if (!master) return
   const now = c.currentTime
 
-  // Overtime crossing: single soft bell, distinct pitch per phase type.
-  // Focus = warm high (E5), break = cool low (D4). Slower attack/decay for a
+  // Overtime crossing: single soft bell (E5). Slower attack/decay for a
   // subtler "you crossed the line" cue vs. the bigger workEnd/breakEnd
   // arpeggios that fire at actual completion.
-  if (kind === 'focusOvertime' || kind === 'breakOvertime') {
-    const f = kind === 'focusOvertime' ? 659.25 : 293.66 // E5 vs D4
+  if (kind === 'focusOvertime') {
+    const f = 659.25 // E5
     const o = c.createOscillator()
     const g = c.createGain()
     o.type = 'sine'

@@ -4,21 +4,38 @@ import { format } from 'date-fns'
 import { X } from 'lucide-react'
 import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
+import { ProjectChipPicker } from './ProjectChipPicker'
 import { fmtDuration } from '../lib/format'
 import { recentTasks } from '../lib/stats'
 import { syncPomodoroToCalendar } from '../lib/calendar'
 import type { Pomodoro, Project } from '../types'
 
-export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
+// initialDate seeds the form (e.g. the day picked in the Calendar); the max
+// selectable date is always today, independent of the seed.
+export function ManualEntryPanel({ onClose, initialDate }: { onClose: () => void; initialDate?: Date }) {
   const projects = useLiveQuery(() => listActiveProjects(), [], [])
   const activeProjects: Project[] = useMemo(() => (projects ?? []).filter(p => !p.archived), [projects])
   const recent = useLiveQuery(() => db.pomodoros.orderBy('startedAt').reverse().filter(p => !p.deletedAt).limit(30).toArray(), [], [])
   const recentChips = useMemo(() => recentTasks(recent ?? [], 4), [recent])
 
+  // Seed once on mount, clamping future dates (e.g. a future day clicked in
+  // the Calendar) to today. Today seeds "the block just ended" from the wall
+  // clock — never from the seed's time, which is midnight when it comes from a
+  // calendar day cell. A past day starts at a sensible hour.
+  const [initial] = useState(() => {
+    const raw = initialDate ?? new Date()
+    const seed = raw.getTime() > Date.now() ? new Date() : raw
+    const isToday = format(seed, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+    return {
+      date: format(seed, 'yyyy-MM-dd'),
+      time: isToday ? format(new Date(Date.now() - 25 * 60 * 1000), 'HH:mm') : '09:00',
+    }
+  })
+
   const [projectId, setProjectId] = useState('')
   const [task, setTask] = useState('')
-  const [date, setDate] = useState(format(now, 'yyyy-MM-dd'))
-  const [startTime, setStartTime] = useState(format(new Date(now.getTime() - 25 * 60 * 1000), 'HH:mm'))
+  const [date, setDate] = useState(initial.date)
+  const [startTime, setStartTime] = useState(initial.time)
   const [minutes, setMinutes] = useState(25)
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -94,28 +111,7 @@ export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () =>
         {activeProjects.length > 0 ? (
           <div className="space-y-1.5">
             <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Project</div>
-            <div className="flex flex-wrap gap-1.5">
-              {activeProjects.map(p => {
-                const selected = p.id === projectId
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setProjectId(p.id)}
-                    className={
-                      'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs transition ' +
-                      (selected
-                        ? 'text-white shadow-sm'
-                        : 'border border-ink-200 dark:border-ink-800 text-ink-600 dark:text-ink-300 hover:border-ink-300')
-                    }
-                    style={selected ? { backgroundColor: p.color } : undefined}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: selected ? 'rgba(255,255,255,0.85)' : p.color }} />
-                    {p.name}
-                  </button>
-                )
-              })}
-            </div>
+            <ProjectChipPicker projects={activeProjects} value={projectId} onChange={setProjectId} />
           </div>
         ) : (
           <p className="text-sm text-ink-500 text-center">Add a project first from the Projects tab.</p>
@@ -151,7 +147,7 @@ export function ManualEntryPanel({ onClose, now = new Date() }: { onClose: () =>
             <input
               type="date"
               value={date}
-              max={format(now, 'yyyy-MM-dd')}
+              max={format(new Date(), 'yyyy-MM-dd')}
               onChange={e => setDate(e.target.value)}
               className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
             />

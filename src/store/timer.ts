@@ -296,9 +296,10 @@ export const useTimer = create<TimerState>((set, get) => ({
         advancePhase(set, get)
         return
       }
-      // Subtle, distinct boundary cue. workEnd / breakEnd still fire on
-      // actual completion (only when no overflow happened, see completeWork).
-      chime(s.phase === 'work' ? 'focusOvertime' : 'breakOvertime')
+      // Subtle, distinct boundary cue. workEnd still fires on actual completion
+      // (only when no overflow happened, see completeWork). Only work reaches
+      // here — breaks and breathing return at their boundary above.
+      chime('focusOvertime')
       set({ isOverflow: true })
     }
   },
@@ -501,7 +502,13 @@ async function completeWork(set: (p: Partial<TimerState>) => void, get: () => Ti
   const plan = s.plan!
   const startedAt = s.currentPomodoroStartedAt ?? Date.now() - plan.workSeconds * 1000
   const endedAt = Date.now()
-  const actualSeconds = Math.max(1, Math.round((endedAt - startedAt) / 1000))
+  // Focus time excludes pauses: derive from phase elapsed (like endWorkIntoBreak),
+  // not wall clock. startedAt/endedAt stay wall timestamps for calendar placement.
+  const elapsed = s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt != null ? nowSec() - s.phaseStartedAt : 0)
+  let actualSeconds = Math.max(1, Math.round(elapsed))
+  // Strict mode: a throttled background tab can fire the boundary late; record
+  // exactly the planned block.
+  if (finishedFully && !plan.allowOvertime) actualSeconds = Math.min(actualSeconds, plan.workSeconds)
   const pomodoro: Pomodoro = {
     id: crypto.randomUUID(),
     projectId: plan.projectId,
@@ -551,8 +558,12 @@ async function endWorkIntoBreak(
   const endedAt = Date.now()
   // Use actual elapsed time, including the running fraction.
   const elapsed = phaseElapsedSec + (isRunning && phaseStartedAt != null ? nowSec() - phaseStartedAt : 0)
-  const actualSeconds = Math.max(1, Math.round(elapsed))
+  let actualSeconds = Math.max(1, Math.round(elapsed))
   const completed = actualSeconds >= phaseDurationSec - 1
+  // Strict mode records at most the planned block, matching completeWork's
+  // clamp — otherwise a throttled background tab that missed the boundary
+  // over-records when the user ends the session by hand.
+  if (completed && !plan.allowOvertime) actualSeconds = Math.min(actualSeconds, phaseDurationSec)
   const pomodoro: Pomodoro = {
     id: crypto.randomUUID(),
     projectId: plan.projectId,

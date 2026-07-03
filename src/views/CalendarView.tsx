@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, isToday } from 'date-fns'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { db, listActiveProjects } from '../db'
 import { fmtClock, fmtDuration } from '../lib/format'
+import { overtimeSec } from '../lib/stats'
 import { ProjectChip } from '../components/ProjectChip'
 import { Button } from '../components/Button'
 import { CalendarDaySchedule, CalendarWeekSchedule } from '../components/CalendarSchedule'
 import { SessionEditPanel } from '../components/SessionEditPanel'
+import { ManualEntryPanel } from '../components/ManualEntryPanel'
 import type { Pomodoro, Project } from '../types'
 
 type Mode = 'month' | 'week' | 'day'
@@ -17,6 +19,7 @@ export function CalendarView() {
   const [cursor, setCursor] = useState(() => new Date())
   const [selected, setSelected] = useState<Date | null>(new Date())
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
 
   // Pick the right query range based on mode.
   const { rangeStart, rangeEnd } = useMemo(() => {
@@ -86,6 +89,8 @@ export function CalendarView() {
 
   const selectedKey = selected ? format(selected, 'yyyy-MM-dd') : null
   const selectedPoms = (selectedKey && byDay.get(selectedKey)) || []
+  // Day mode follows the cursor (arrow navigation), not the month selection.
+  const cursorPoms = byDay.get(format(cursor, 'yyyy-MM-dd')) ?? []
   const selectedSession = useMemo(
     () => (pomodoros ?? []).find(p => p.id === selectedSessionId) ?? null,
     [pomodoros, selectedSessionId],
@@ -137,9 +142,14 @@ export function CalendarView() {
 
       {mode === 'day' && (
         <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-4 sm:p-5 space-y-3">
-          <div className="text-xs text-ink-500">
-            {selectedPoms.length} session{selectedPoms.length === 1 ? '' : 's'} ·{' '}
-            {fmtDuration(selectedPoms.reduce((a, p) => a + p.actualSeconds, 0))}
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-xs text-ink-500">
+              {cursorPoms.length} session{cursorPoms.length === 1 ? '' : 's'} ·{' '}
+              {fmtDuration(cursorPoms.reduce((a, p) => a + p.actualSeconds, 0))}
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setManualOpen(true)}>
+              <Plus size={14} /> Log session
+            </Button>
           </div>
           <CalendarDaySchedule
             date={cursor}
@@ -157,6 +167,13 @@ export function CalendarView() {
 
       {mode === 'month' && selected && (
         <DayPanel date={selected} pomodoros={selectedPoms} projects={projectMap} />
+      )}
+
+      {manualOpen && (
+        <ManualEntryPanel
+          initialDate={mode === 'day' ? cursor : (selected ?? cursor)}
+          onClose={() => setManualOpen(false)}
+        />
       )}
     </div>
   )
@@ -252,14 +269,18 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
   const sorted = useMemo(() => [...pomodoros].sort((a, b) => a.startedAt - b.startedAt), [pomodoros])
   const totalMin = sorted.reduce((a, p) => a + p.actualSeconds, 0) / 60
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
 
   return (
     <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between gap-3">
         <div>
           <h2 className="font-display text-xl text-ink-900 dark:text-ink-50">{format(date, 'EEEE, MMMM d')}</h2>
           <div className="text-xs text-ink-500 mt-0.5">{sorted.length} session{sorted.length === 1 ? '' : 's'} · {fmtDuration(totalMin * 60)}</div>
         </div>
+        <Button size="sm" variant="ghost" onClick={() => setManualOpen(true)}>
+          <Plus size={14} /> Log session
+        </Button>
       </div>
       {sorted.length === 0 ? (
         <div className="text-sm text-ink-500 py-6 text-center">No Pomodoros yet.</div>
@@ -275,6 +296,9 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
                     <div className="flex items-center gap-2 flex-wrap">
                       {project && <ProjectChip project={project} />}
                       <span className="text-xs text-ink-500 tabular">{fmtClock(p.startedAt)} · {fmtDuration(p.actualSeconds)}</span>
+                      {overtimeSec(p) > 0 && (
+                        <span className="text-[10px] tabular text-accent">+{fmtDuration(overtimeSec(p))}</span>
+                      )}
                       {!p.completed && <span className="text-[10px] uppercase tracking-wider text-rose-500">aborted</span>}
                       {p.flowMode && <span className="text-[10px] uppercase tracking-wider text-accent">flow</span>}
                       {p.manual && <span className="text-[10px] uppercase tracking-wider text-ink-400">manual</span>}
@@ -289,6 +313,9 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
       )}
       {editingId && (
         <SessionEditPanel pomodoroId={editingId} onClose={() => setEditingId(null)} />
+      )}
+      {manualOpen && (
+        <ManualEntryPanel initialDate={date} onClose={() => setManualOpen(false)} />
       )}
     </div>
   )

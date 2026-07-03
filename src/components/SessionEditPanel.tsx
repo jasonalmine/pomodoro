@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { CalendarDays, Trash2, X } from 'lucide-react'
 import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
+import { ProjectChipPicker } from './ProjectChipPicker'
 import { confirmDialog } from '../lib/confirm'
 import { fmtDuration } from '../lib/format'
 import { recentTags } from '../lib/stats'
@@ -184,7 +185,9 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
               {pom.flowMode && 'Flow session · '}
               {pom.manual && 'Logged manually · '}
               {pom.ritualUsed && 'With ritual · '}
-              original: {fmtDuration(pom.actualSeconds)}
+              {!pom.flowMode && !pom.manual && pom.plannedSeconds !== pom.actualSeconds
+                ? <>planned {fmtDuration(pom.plannedSeconds)} · actual {fmtDuration(pom.actualSeconds)}</>
+                : <>original: {fmtDuration(pom.actualSeconds)}</>}
             </p>
           )}
         </header>
@@ -211,35 +214,18 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
 
             <div className="space-y-1.5">
               <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Project</div>
-              <div className="flex flex-wrap gap-1.5">
-                {activeProjects.map(p => {
-                  const selected = p.id === projectId
-                  return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setProjectId(p.id)
-                        if (taskId) {
-                          // Drop the linked task if it belonged to the previous project.
-                          const t = (allTasks ?? []).find(x => x.id === taskId)
-                          if (!t || t.projectId !== p.id) setTaskId(null)
-                        }
-                      }}
-                      className={
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition ' +
-                        (selected
-                          ? 'text-white shadow-sm'
-                          : 'border border-ink-200 dark:border-ink-800 text-ink-600 dark:text-ink-300 hover:border-ink-300')
-                      }
-                      style={selected ? { backgroundColor: p.color } : undefined}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: selected ? 'rgba(255,255,255,0.85)' : p.color }} />
-                      {p.name}
-                    </button>
-                  )
-                })}
-              </div>
+              <ProjectChipPicker
+                projects={activeProjects}
+                value={projectId}
+                onChange={id => {
+                  setProjectId(id)
+                  if (taskId) {
+                    // Drop the linked task if it belonged to the previous project.
+                    const t = (allTasks ?? []).find(x => x.id === taskId)
+                    if (!t || t.projectId !== id) setTaskId(null)
+                  }
+                }}
+              />
             </div>
 
             {projectTasks.length > 0 && (

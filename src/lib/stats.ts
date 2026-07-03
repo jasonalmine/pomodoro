@@ -1,4 +1,4 @@
-import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, startOfDay, startOfWeek } from 'date-fns'
+import { differenceInCalendarDays, eachDayOfInterval, endOfWeek, format, startOfDay, startOfWeek, subWeeks } from 'date-fns'
 import type { Pomodoro, Project } from '../types'
 
 export type DailyTotal = {
@@ -195,6 +195,51 @@ export function yearlyHeatmap(poms: Pomodoro[], now = new Date()): Array<{ date:
     const v = map.get(key)!
     return { date: d, key, seconds: v.seconds, count: v.count }
   })
+}
+
+// Focused seconds bucketed by start hour (24 buckets), optionally windowed.
+export function focusByHour(poms: Pomodoro[], windowStartMs?: number): number[] {
+  const buckets = new Array<number>(24).fill(0)
+  for (const p of poms) {
+    if (windowStartMs != null && p.startedAt < windowStartMs) continue
+    buckets[new Date(p.startedAt).getHours()] += p.actualSeconds
+  }
+  return buckets
+}
+
+export type WeeklyTotal = {
+  weekStart: Date
+  seconds: number
+  count: number
+}
+
+// Focused totals for the last N ISO weeks (Mon-Sun), oldest first, current week last.
+// Calendar-aware (subWeeks/startOfWeek) so DST transitions can't skew buckets or labels.
+export function weeklyTotals(poms: Pomodoro[], weeks = 8, now = new Date()): WeeklyTotal[] {
+  const current = startOfWeek(now, { weekStartsOn: 1 })
+  const out: WeeklyTotal[] = []
+  const byStart = new Map<number, WeeklyTotal>()
+  for (let i = weeks - 1; i >= 0; i--) {
+    const weekStart = subWeeks(current, i)
+    const entry: WeeklyTotal = { weekStart, seconds: 0, count: 0 }
+    out.push(entry)
+    byStart.set(weekStart.getTime(), entry)
+  }
+  for (const p of poms) {
+    const entry = byStart.get(startOfWeek(new Date(p.startedAt), { weekStartsOn: 1 }).getTime())
+    if (!entry) continue
+    entry.seconds += p.actualSeconds
+    entry.count += 1
+  }
+  return out
+}
+
+// Seconds a session ran past its plan. Zero for flow (no plan boundary),
+// manual entries (planned == actual by construction), and aborted sessions.
+// The single home for the "+Xm" badge predicate.
+export function overtimeSec(p: Pomodoro): number {
+  if (p.flowMode || p.manual || !p.completed) return 0
+  return Math.max(0, p.actualSeconds - p.plannedSeconds)
 }
 
 // Count of Pomodoros logged against each taskId (any completion state).
