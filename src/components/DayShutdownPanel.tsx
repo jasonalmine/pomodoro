@@ -5,10 +5,7 @@ import { X } from 'lucide-react'
 import { db, listActiveProjects } from '../db'
 import { Button } from './Button'
 import type { DayShutdown, Project } from '../types'
-
-export function todayShutdownId(now = new Date()): string {
-  return format(now, 'yyyy-MM-dd')
-}
+import { todayShutdownId } from '../lib/dayId'
 
 export function DayShutdownPanel({ onClose, now = new Date() }: { onClose: () => void; now?: Date }) {
   const id = todayShutdownId(now)
@@ -25,6 +22,7 @@ export function DayShutdownPanel({ onClose, now = new Date() }: { onClose: () =>
 
   useEffect(() => {
     if (!existing) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seed the form from the loaded shutdown row
     setWins(existing.wins ?? '')
     setBlockers(existing.blockers ?? '')
     setTomorrowProjectId(existing.tomorrowProjectId ?? '')
@@ -35,6 +33,7 @@ export function DayShutdownPanel({ onClose, now = new Date() }: { onClose: () =>
   useEffect(() => {
     if (tomorrowProjectId) return
     if (activeProjects.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- default to the first active project once projects load
     setTomorrowProjectId(activeProjects[0].id)
   }, [activeProjects, tomorrowProjectId])
 

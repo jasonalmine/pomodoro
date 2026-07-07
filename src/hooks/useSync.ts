@@ -47,7 +47,7 @@ export function useSync(): SyncState {
     })
 
     // Push on local writes (debounced).
-    const onWrite = (_pk: unknown) => { schedulePush() }
+    const onWrite = () => { schedulePush() }
     db.projects.hook('creating', onWrite)
     db.projects.hook('updating', onWrite)
     db.projects.hook('deleting', onWrite)

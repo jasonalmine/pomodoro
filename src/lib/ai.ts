@@ -168,6 +168,15 @@ function aiErr(status: number, message: string): AIError {
   return { status, message }
 }
 
+async function readErrorDetail(res: Response): Promise<string> {
+  try {
+    const j = await res.json()
+    return j?.error?.message ?? JSON.stringify(j)
+  } catch {
+    return await res.text().catch(() => '')
+  }
+}
+
 async function callAnthropic(apiKey: string, model: string, system: string, user: string, maxTokens: number): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -185,8 +194,7 @@ async function callAnthropic(apiKey: string, model: string, system: string, user
     }),
   })
   if (!res.ok) {
-    let detail = ''
-    try { const j = await res.json(); detail = j?.error?.message ?? JSON.stringify(j) } catch { detail = await res.text().catch(() => '') }
+    const detail = await readErrorDetail(res)
     throw aiErr(res.status, detail || `HTTP ${res.status}`)
   }
   const json = await res.json() as { content?: Array<{ type: string; text?: string }> }
@@ -212,8 +220,7 @@ async function callOpenAI(apiKey: string, model: string, system: string, user: s
     }),
   })
   if (!res.ok) {
-    let detail = ''
-    try { const j = await res.json(); detail = j?.error?.message ?? JSON.stringify(j) } catch { detail = await res.text().catch(() => '') }
+    const detail = await readErrorDetail(res)
     throw aiErr(res.status, detail || `HTTP ${res.status}`)
   }
   const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
@@ -234,8 +241,7 @@ async function callGemini(apiKey: string, model: string, system: string, user: s
     }),
   })
   if (!res.ok) {
-    let detail = ''
-    try { const j = await res.json(); detail = j?.error?.message ?? JSON.stringify(j) } catch { detail = await res.text().catch(() => '') }
+    const detail = await readErrorDetail(res)
     throw aiErr(res.status, detail || `HTTP ${res.status}`)
   }
   const json = await res.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }

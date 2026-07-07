@@ -9,7 +9,7 @@ export function PWAUpdatePrompt() {
     offlineReady: [offlineReady, setOfflineReady],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegisteredSW(_swUrl, _r) { /* registered */ },
+    onRegisteredSW() { /* registered */ },
     onRegisterError(error) { console.error('[PWA] SW register error:', error) },
   })
 

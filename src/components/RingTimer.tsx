@@ -48,9 +48,9 @@ export function RingTimer() {
   const phase = useTimer(s => s.phase)
   const phaseDurationSec = useTimer(s => s.phaseDurationSec)
   const isOverflow = useTimer(s => s.isOverflow)
-  const [, force] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    const id = setInterval(() => force(x => x + 1), 250)
+    const id = setInterval(() => setNow(Date.now()), 250)
     return () => clearInterval(id)
   }, [])
 
@@ -59,7 +59,7 @@ export function RingTimer() {
   const overflow = overflowSec(s)
   const isFlow = phase === 'flow'
   const elapsed = isFlow
-    ? s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt != null ? Date.now() / 1000 - s.phaseStartedAt : 0)
+    ? s.phaseElapsedSec + (s.isRunning && s.phaseStartedAt != null ? now / 1000 - s.phaseStartedAt : 0)
     : 0
   // Flow gets a slow-sweeping wedge so the ring still has motion without implying a deadline.
   const flowSweep = isFlow ? ((elapsed % 600) / 600) : 0

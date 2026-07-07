@@ -26,6 +26,7 @@ export function DayNoteCard({ now = new Date() }: { now?: Date }) {
     if (dirtyRef.current) return
     setContent(existing?.content ?? '')
     lastSavedRef.current = existing?.content ?? ''
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seed local editor state from the loaded day-note row
     if (existing?.updatedAt) setSavedAt(existing.updatedAt)
   }, [existing])
 

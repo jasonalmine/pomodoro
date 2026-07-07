@@ -122,6 +122,7 @@ export function TimerView() {
     if (!active.length) return
     const saved = storedProjectId ?? projectId
     if (saved && active.some(p => p.id === saved)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- select the stored/first project once active projects load
       if (projectId !== saved) setProjectIdLocal(saved)
       return
     }
@@ -168,6 +169,7 @@ export function TimerView() {
     }
     if (remainingPoms === 0) return null
     const minutes = remainingPoms * workMinVal
+    // eslint-disable-next-line react-hooks/purity -- display-only finish estimate; recomputed when inputs change, exactness not required
     const finishAt = new Date(Date.now() + minutes * 60 * 1000)
     return { remainingPoms, minutes, finishAt }
   }, [projectOpenTasks, taskCounts, workMinVal])
@@ -664,6 +666,7 @@ function EditableIntention({ value, placeholder, onChange }: { value: string; pl
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement | null>(null)
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- reset the draft to the external value when not actively editing
   useEffect(() => { if (!editing) setDraft(value) }, [value, editing])
   useEffect(() => {
     if (editing) {

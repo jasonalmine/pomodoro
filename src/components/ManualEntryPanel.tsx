@@ -43,6 +43,7 @@ export function ManualEntryPanel({ onClose, initialDate }: { onClose: () => void
 
   useEffect(() => {
     if (projectId) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- default to the first active project once projects load
     if (activeProjects.length) setProjectId(activeProjects[0].id)
   }, [activeProjects, projectId])
 

@@ -63,6 +63,7 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
   useEffect(() => {
     if (seeded || !pom) return
     const start = new Date(pom.startedAt)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seed the edit form once from the loaded session
     setProjectId(pom.projectId)
     setTaskId(pom.taskId ?? null)
     setTask(pom.task ?? '')
