@@ -1,121 +1,95 @@
 # Pomodoro
 
-Local-first Pomodoro web app with a calm pre-session ritual, flexible timing, project tracking, and a calendar of your past sessions. Works on desktop and mobile browsers.
+A local-first Pomodoro timer for people who want a calmer relationship with their work: a breathing ritual before each session, flexible timing that respects flow, honest stats, and a macOS menu-bar app that stays out of the way.
 
-## Features (v1)
+Everything lives on your device (IndexedDB). Cloud sync, calendar export, and the AI weekly review are all optional, bring-your-own-key, and off by default.
 
-- Flexible timer: customize work / short break / long break per session, with a long-break cadence.
-- Pre-session ritual: configurable breathing pattern (Box, 4-7-8, Coherent, Energize) for N cycles, followed by an optional silent meditation block. Soft breath cue tones.
-- Project + task tracking: pick a project, name the work, hit start.
-- Calendar view: month heatmap colored by focus minutes, per-day timeline drilldown, per-Pomodoro detail + reflection notes.
-- Audio: chime on phase transitions, ambient focus sounds (rain / brown noise / lo-fi pad), all WebAudio-generated.
-- Browser notifications when the tab is hidden + Screen Wake Lock during active sessions.
-- Light / dark / system theme.
-- **Google Calendar sync** — finished focus blocks are auto-logged to your calendar (see below).
+![Timer running in dark mode](docs/assets/timer-dark.png)
 
-## Google Calendar sync
+![Insights view](docs/assets/insights-light.png)
 
-Each completed focus (or flow) block can be dropped onto your Google Calendar automatically, so your day shows where your attention actually went.
+## Install (macOS)
 
-It runs through [Maton](https://maton.ai), a managed-OAuth API gateway: you bring a Maton API key, authorize Google once through Maton, and Maton injects the Google token on every request. The app never sees your Google login, and because `api.maton.ai` serves open CORS, it all happens client-side — no backend.
+Grab the latest `.dmg` from [Releases](https://github.com/jasonalmine/pomodoro/releases), open it, and drag **Pomodoro** to Applications.
 
-**Setup (one time):**
+The app is not signed with an Apple Developer certificate, so on first launch macOS will refuse to open it. Two ways past that, pick one:
 
-1. Get a free key at [maton.ai/settings](https://maton.ai/settings).
-2. In the app: **Settings → Google Calendar** → paste the key → **Connect Google Calendar**. A tab opens to authorize Google; come back and it flips to *Connected*.
-3. Tune what syncs: standard focus vs. flow sessions, Busy/Free, a "skip blocks under N min" filter, whether to fold reflection notes into the event, and which calendar (`primary` by default).
+- Right-click **Pomodoro.app** in Applications → **Open** → **Open** in the dialog, or
+- run once in Terminal: `xattr -cr /Applications/Pomodoro.app`
 
-Events are titled `Project — task` with the reflection in the description. Already-finished blocks can be pushed in bulk with **Sync the last 7 days**, and any single session can be added from its edit modal. Deleting a session removes its calendar event too.
+It lives in your menu bar: click the icon for a compact timer popover, or expand to the full app. The tray title shows the live countdown (and `+MM:SS` when you run over).
 
-Privacy: the Maton key lives only in this browser (IndexedDB), is **never** synced via Supabase, and is stripped from JSON exports — same posture as the AI weekly-review key.
+### Or use it in the browser
 
-## Stack
+It's a static web app — run it locally (below) or deploy it to any static host. HTTPS is required outside localhost for notifications, wake lock, and `crypto.randomUUID`.
 
-- Vite + React 19 + TypeScript + Tailwind CSS v3
-- Zustand for timer state, Dexie for IndexedDB persistence
-- React Router v6
-- WebAudio API for all sound (no audio assets, all procedural)
-- PocketBase sync stub at `src/lib/sync.ts`, wire up when ready to self-host
+## Features
+
+- **Flexible timer** — work / short break / long break durations per session, long-break cadence, auto-start toggles. Overtime mode (default) lets a session run past the boundary and shows the overshoot on a second ring; strict mode auto-advances.
+- **Flow mode** — an open-ended count-up session for when the work doesn't fit a box. Wrap up whenever; the break scales to how long you flowed.
+- **Pre-session ritual** — a configurable breathing warm-up (Box, 4-7-8, Coherent, Energize) with soft cue tones.
+- **Projects & tasks** — pick a project, name the work, link tasks with estimates, drag to reorder.
+- **Reflection** — a one-line "what did you finish?" after each session, with tags. Skippable, never nags.
+- **Insights** — daily goal ring, streaks, 8-week trend, per-project breakdowns, hour-of-day histogram, GitHub-style year heatmap.
+- **Calendar** — month heatmap of focus minutes, week/day schedules, click any session to edit, log past sessions you forgot to track.
+- **Audio cues** — procedural WebAudio (no sound assets): boundary chimes, subtle repeating overtime reminders, distinct pitches for "focus ran over" vs "break is over", ambient focus sounds (rain, brown noise, lo-fi, ticking).
+- **Day shutdown** — an end-of-day ritual (wins, blockers, tomorrow's first Pomodoro) that greets you the next morning.
+- **Keyboard shortcuts** — Space pause/resume, S skip, E/⇧E ±5 min, Esc end.
+- **Optional cloud sync** — Supabase-backed, last-write-wins, works across devices. The app is fully functional without it.
+- **Optional Google Calendar export** — completed focus blocks land on your calendar via [Maton](https://maton.ai) (bring your own key; the app never sees your Google login).
+- **Optional AI weekly review** — a short coach-style summary of your week (Anthropic, OpenAI, or Gemini key — stored only on-device).
+
+## Privacy posture
+
+- The working store is IndexedDB in your browser/webview. No backend of its own, no analytics, no tracking.
+- API keys (Maton, AI provider) live only on the device, are never synced, and are stripped from JSON exports.
+- Cloud sync is opt-in and scoped to your own Supabase project.
 
 ## Develop
 
 ```bash
 npm install
-npm run dev
+npm run dev        # http://localhost:5173
+npm run build      # typecheck + production build
+npm run lint
 ```
 
-App runs on http://localhost:5173/.
-
-## Build
+### macOS app (Tauri v2)
 
 ```bash
-npm run build
-npm run preview
+npm run tauri:dev    # run the menu-bar app against the dev server
+npm run tauri:build  # bundle Pomodoro.app + .dmg (src-tauri/target/release/bundle)
 ```
 
-## Deploy
+Requires the Rust toolchain. The desktop app is the same web bundle in a Tauri shell — a compact menu-bar popover plus the full window, with a live tray countdown.
 
-The app is a static SPA — any static host works. HTTPS is required for `crypto.randomUUID`, Web Notifications, and Screen Wake Lock to work outside localhost.
+### Optional cloud sync
 
-### Vercel (recommended)
+Copy `.env.example` to `.env` and fill in your Supabase URL + anon key, then apply the migrations in `supabase/migrations/` (`npm run db:push` with a linked Supabase CLI). See [docs/SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md). Without `.env`, all sync paths no-op and the app stays local.
 
-1. Import `jasonalmine/pomodoro` on https://vercel.com → it auto-detects Vite.
-2. Click **Deploy**.
-3. Add `pomodoro.jasonalmine.dev` under **Settings → Domains** and follow the CNAME instructions.
+## Deploy the web app
 
-`vercel.json` configures the SPA fallback and cache headers. Every push to `main` auto-deploys.
+Any static host works. `vercel.json` ships SPA rewrites and cache headers for Vercel; `deploy.sh` rsyncs `dist/` to a VPS behind Caddy (see the script header for usage).
 
-### Self-host via Caddy (alternative)
+## Stack
 
-`deploy.sh` builds and rsyncs `dist/` to any VPS where you have SSH access.
-
-```bash
-VPS_HOST=your.vps.host DOMAIN=pomodoro.yourdomain.com ./deploy.sh
-```
-
-Or stash the host + domain in a local `.env.deploy` (gitignored):
-
-```bash
-echo 'VPS_HOST=your.vps.host
-DOMAIN=pomodoro.yourdomain.com' > .env.deploy
-set -a; source .env.deploy; set +a; ./deploy.sh
-```
-
-On the VPS, point Caddy at `/var/www/pomodoro` with an SPA fallback:
-
-```caddyfile
-pomodoro.yourdomain.com {
-    root * /var/www/pomodoro
-    encode zstd gzip
-    file_server
-    @notFile { not file; not path /assets/* }
-    rewrite @notFile /index.html
-    @assets path /assets/*
-    header @assets Cache-Control "public, max-age=31536000, immutable"
-    header /index.html Cache-Control "no-cache"
-}
-```
-
-Caddy provisions a Let's Encrypt cert automatically. Worth choosing this path once you wire PocketBase sync and want frontend + backend on the same box.
+Vite · React 19 · TypeScript · Tailwind v3 · Zustand (timer state machine) · Dexie/IndexedDB (persistence) · Supabase (optional sync) · Tauri v2 (macOS shell) · WebAudio (all sound, procedural)
 
 ## Project layout
 
 ```
 src/
   audio/        WebAudio engine (chimes, ambient, breath cues)
-  components/   Reusable UI (Button, ProjectChip, BreathingCircle, TimerDisplay, Nav)
-  db/           Dexie schema, default settings, seed
-  hooks/        useSettings, useTheme, useTimerTick, useWakeLock, useAudioEffects, useNotifications
-  lib/          format helpers, Supabase sync, AI review, Google Calendar (Maton) client
-  store/        Zustand timer state machine
-  types/        Shared TS types
-  views/        Timer, Calendar, Projects, Settings
-  App.tsx       Router + shell
+  components/   Reusable UI (RingTimer, ProjectChipPicker, panels, viz)
+  db/           Dexie schema, defaults, seed
+  hooks/        settings, sync, ticks, wake lock, audio effects, shortcuts
+  lib/          stats, sync, AI review, Google Calendar client, export/import
+  store/        Zustand timer phase machine
+  views/        Timer, Insights, Calendar, Projects, Settings
+src-tauri/      Tauri v2 shell (menu-bar window, tray countdown)
+supabase/       SQL migrations for optional sync
 ```
 
-## Roadmap
+## License
 
-- Wire PocketBase sync against a Contabo VPS deployment for multi-device.
-- Weekly / yearly heatmap variants and per-project stats.
-- Streak / quota goals.
-- PWA install + service worker.
+[MIT](LICENSE)

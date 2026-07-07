@@ -1,0 +1,46 @@
+# Builds the macOS app (universal: Apple Silicon + Intel) and attaches the
+# .dmg to a draft GitHub release. Trigger manually from the Actions tab.
+#
+# Deliberately NOT triggered on tag push: the first releases are built and
+# published locally; enable a tags trigger once this is the only release path.
+#
+# No signing: the app ships unsigned (see README install notes). No Supabase
+# env is provided, so public builds have cloud sync compiled out — users who
+# self-build can bake in their own backend via .env.
+name: Release macOS app
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: 'Pomodoro v__VERSION__'
+          releaseDraft: true
+          args: --target universal-apple-darwin

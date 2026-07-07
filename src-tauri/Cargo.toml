@@ -1,6 +1,6 @@
 [package]
 name = "pomodoro"
-version = "0.0.0"
+version = "0.1.0"
 description = "Pomodoro menu bar app"
 authors = ["Jason Almine"]
 edition = "2021"
