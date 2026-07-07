@@ -34,8 +34,9 @@ dist-ssr
 # Local deploy config (VPS host, domain)
 .env.deploy
 
-# Claude Code working dir (scratchpad, local notes)
+# Claude Code working dir (scratchpad, local notes, planning artifacts)
 .claude/
+docs/superpowers/
 
 # Tauri (Rust build output + generated schemas). Keep the icon set tracked.
 src-tauri/target/
