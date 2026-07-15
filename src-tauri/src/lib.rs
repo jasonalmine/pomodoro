@@ -66,6 +66,7 @@ fn toggle_panel(app: &AppHandle, cursor: PhysicalPosition<f64>) {
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .manage(PanelState {
             is_panel: Mutex::new(true),
         })

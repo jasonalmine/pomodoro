@@ -62,7 +62,7 @@ export function Nav({ collapsed = false }: { collapsed?: boolean }) {
               className={({ isActive }) =>
                 clsx(
                   'flex flex-col items-center gap-0.5 py-2.5 text-[10px] uppercase tracking-wider transition',
-                  isActive ? 'text-accent' : 'text-ink-500',
+                  isActive ? 'text-accent-strong' : 'text-ink-500',
                 )
               }
             >

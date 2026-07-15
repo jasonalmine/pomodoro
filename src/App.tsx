@@ -9,6 +9,8 @@ import { useFaviconTimer } from './hooks/useFaviconTimer'
 import { useTrayTimer } from './hooks/useTrayTimer'
 import { useTimerTick } from './hooks/useTimerTick'
 import { useAudioEffects } from './hooks/useAudioEffects'
+import { useWorkHoursReminder } from './hooks/useWorkHoursReminder'
+import { useAccentFromFocus } from './hooks/useAccentFromFocus'
 import { useTimer } from './store/timer'
 import { Nav } from './components/Nav'
 import { PWAUpdatePrompt } from './components/PWAUpdatePrompt'
@@ -46,7 +48,7 @@ function FullApp() {
 
 function Shell() {
   const settings = useSettings()
-  useTheme(settings.theme, settings.palette ?? 'ember')
+  useTheme(settings.theme, settings.palette ?? 'coral', settings.customAccent)
   useSync()
   usePageTitle()
   useFaviconTimer()
@@ -55,6 +57,8 @@ function Shell() {
   // the timer runs and chimes in both the compact panel and the full window.
   useTimerTick()
   useAudioEffects()
+  useWorkHoursReminder()
+  useAccentFromFocus()
   useEffect(() => { void ensureSeed() }, [])
 
   // In the desktop shell the one window doubles as a menu-bar popover. Rust

@@ -418,7 +418,7 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <input
         value={name} onChange={e => setName(e.target.value)} placeholder="Project name" autoFocus
         className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-base dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"

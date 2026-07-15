@@ -47,7 +47,10 @@ export type AudioSettings = {
 }
 
 export type ThemeMode = 'system' | 'light' | 'dark'
-export type Palette = 'ember' | 'pine' | 'slate'
+export type Palette =
+  | 'blush' | 'coral' | 'amber' | 'citrine' | 'sage' | 'teal'
+  | 'sky' | 'denim' | 'periwinkle' | 'lilac' | 'mauve' | 'slate'
+  | 'custom'
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini'
 
@@ -74,15 +77,31 @@ export type CalendarSyncSettings = {
   minMinutes: number
 }
 
+// Local-only. Optional daily window that nudges you to start a focus block when
+// you're idle during your set work hours, and stays silent outside them.
+export type WorkHoursSettings = {
+  enabled: boolean
+  // Minutes since local midnight. A window with end <= start wraps past midnight.
+  startMinutes: number
+  endMinutes: number
+  // Length 7, indexed by JS getDay() (0 = Sunday … 6 = Saturday).
+  days: boolean[]
+  // How often to re-nudge while idle inside the window.
+  reminderIntervalMin: number
+}
+
 export type Settings = {
   id: 'singleton'
   timer: TimerDefaults
   ritual: RitualConfig
   audio: AudioSettings
   notifications: boolean
+  workHours: WorkHoursSettings
   wakeLock: boolean
   theme: ThemeMode
   palette: Palette
+  // Base accent hex for the 'custom' palette; tones are derived at apply time.
+  customAccent?: string
   dailyGoalPomodoros: number
   pocketBaseUrl?: string
   aiProvider?: AiProvider

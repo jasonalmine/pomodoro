@@ -77,7 +77,7 @@ export function DayNoteCard({ now = new Date() }: { now?: Date }) {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
       <div className="flex items-start gap-3">
         <Notebook size={18} className="text-accent mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">

@@ -129,7 +129,7 @@ export function CalendarView() {
       )}
 
       {mode === 'week' && (
-        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-4 sm:p-5">
+        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-4 sm:p-5">
           <CalendarWeekSchedule
             weekDays={eachDayOfInterval({ start: rangeStart, end: rangeEnd })}
             sessionsByDay={byDay}
@@ -141,7 +141,7 @@ export function CalendarView() {
       )}
 
       {mode === 'day' && (
-        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-4 sm:p-5 space-y-3">
+        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-xs text-ink-500">
               {cursorPoms.length} session{cursorPoms.length === 1 ? '' : 's'} ·{' '}
@@ -272,7 +272,7 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
   const [manualOpen, setManualOpen] = useState(false)
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <h2 className="font-display text-xl text-ink-900 dark:text-ink-50">{format(date, 'EEEE, MMMM d')}</h2>

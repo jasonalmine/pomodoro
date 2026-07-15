@@ -54,7 +54,7 @@ class PomodoroDB extends Dexie {
       })
       .upgrade(async (tx) => {
         await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
-          if (!s.palette) s.palette = 'ember'
+          if (!s.palette) s.palette = 'coral'
         })
       })
     this.version(5)
@@ -120,9 +120,12 @@ export const BREATH_PATTERNS = [
   { id: 'energize', name: 'Energize (6-2-4-0)', inhale: 6, holdIn: 2, exhale: 4, holdOut: 0 },
 ] as const
 
+// Pastel-tuned project swatches, harmonized with the accent palettes so a
+// running focus block's dynamic accent (derived from the project color) matches
+// the overall look.
 export const PROJECT_COLORS = [
-  '#ff6a37', '#f59e0b', '#10b981', '#06b6d4', '#3b82f6',
-  '#6366f1', '#8b5cf6', '#ec4899', '#ef4444', '#84cc16',
+  '#e79ab4', '#f0a48c', '#e6bd83', '#c6d07f', '#9fc9a7',
+  '#86c6bd', '#93c6e2', '#aca6e5', '#c3a2e2', '#d69ccf',
 ]
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -151,9 +154,16 @@ export const DEFAULT_SETTINGS: Settings = {
     muted: false,
   },
   notifications: true,
+  workHours: {
+    enabled: false,
+    startMinutes: 9 * 60,  // 09:00
+    endMinutes: 17 * 60,   // 17:00
+    days: [false, true, true, true, true, true, false], // Mon–Fri
+    reminderIntervalMin: 15,
+  },
   wakeLock: true,
   theme: 'system',
-  palette: 'ember',
+  palette: 'coral',
   dailyGoalPomodoros: 6,
   calendarSync: {
     enabled: false,
@@ -187,7 +197,7 @@ export async function seedDefaultProjectIfEmpty() {
   await db.projects.put({
     id: crypto.randomUUID(),
     name: 'Deep Work',
-    color: '#ff6a37',
+    color: PROJECT_COLORS[1], // pastel coral, matches the refreshed swatch set
     archived: false,
     createdAt: now,
     updatedAt: now,

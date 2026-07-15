@@ -13,13 +13,14 @@ const PHASE_LABEL: Record<Phase, string> = {
   reflect: 'Reflect',
 }
 
-// Resolves to a CSS rgb() expression that respects the active palette.
-function accentColor(opacity = 1): string {
-  return `rgb(var(--accent) / ${opacity})`
+// The progress arc uses the deeper `strong` accent tone so it stays crisp on a
+// pale track (the pastel base is too light as a thin stroke).
+function accentStroke(opacity = 1): string {
+  return `rgb(var(--accent-strong) / ${opacity})`
 }
 
-// Distinct hue for breaks so work and rest read differently.
-const BREAK_COLOR = '#10b981'
+// Distinct, pastel-tuned rest hue for breaks so work and rest read differently.
+const BREAK_COLOR = 'rgb(var(--rest))'
 
 function phaseRingColor(phase: Phase): string {
   switch (phase) {
@@ -29,9 +30,9 @@ function phaseRingColor(phase: Phase): string {
     case 'work':
     case 'flow':
     case 'breathing':
-      return accentColor()
+      return accentStroke()
     default:
-      return 'rgb(100 100 115)'
+      return 'rgb(139 138 131)'
   }
 }
 
@@ -109,7 +110,7 @@ export function RingTimer() {
           <circle
             cx="100" cy="100" r={R_OVER}
             fill="none"
-            stroke={accentColor()}
+            stroke={accentStroke()}
             strokeWidth={STROKE_OVER}
             strokeLinecap="round"
             strokeDasharray={C_OVER}
@@ -123,11 +124,11 @@ export function RingTimer() {
           {displayTime}
         </div>
         {isOverflow && (
-          <div className="mt-1 font-mono text-sm font-semibold tabular text-accent">
+          <div className="mt-1 font-mono text-sm font-semibold tabular text-accent-strong">
             +{fmtTime(overflow)}
           </div>
         )}
-        <div className={`mt-2 text-[11px] font-medium uppercase tracking-[0.18em] ${isOverflow ? 'text-accent' : 'text-ink-400'}`}>
+        <div className={`mt-2 text-[11px] font-medium uppercase tracking-[0.18em] ${isOverflow ? 'text-accent-strong' : 'text-ink-400'}`}>
           {label}
         </div>
       </div>

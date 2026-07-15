@@ -128,7 +128,7 @@ export function InsightsView() {
             <StatCard label="Streak" sessions={0} seconds={0} customValue={`${streak} day${streak === 1 ? '' : 's'}`} hideSessions />
           </section>
 
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
             <div className="flex items-center justify-between gap-3">
               <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Today</h2>
               <Button size="sm" variant="ghost" onClick={() => setManualOpen(true)}>
@@ -143,7 +143,7 @@ export function InsightsView() {
 
           <DayNoteCard now={now} />
 
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
             <div className="flex items-start gap-3">
               <Moon size={18} className="text-accent mt-0.5 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -195,7 +195,7 @@ export function InsightsView() {
             <StatCard label="Avg / day (active)" sessions={0} seconds={lifetime.averagePerDay} hideSessions />
           </section>
 
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
             <div className="flex items-baseline justify-between">
               <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Trend</h2>
               <span className="text-xs text-ink-500">Last 8 weeks</span>
@@ -203,7 +203,7 @@ export function InsightsView() {
             <WeekTrend weeks={trend} />
           </section>
 
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
             <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">This week</h2>
             <div className="text-xs text-ink-500">
               Mon {format(weekStart, 'MMM d')} – Sun {format(weekEnd, 'MMM d')} · each block is a Pomodoro, colored by project.
@@ -252,13 +252,13 @@ export function InsightsView() {
             <StatCard label="Best streak" sessions={0} seconds={0} customValue={`${lifetime.bestStreak} day${lifetime.bestStreak === 1 ? '' : 's'}`} hideSessions />
           </section>
 
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
             <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Year heatmap</h2>
             <p className="text-xs text-ink-500">Each square is one day. Darker = more focused minutes. Hover for details.</p>
             <YearHeatmap cells={heatmap} />
           </section>
 
-          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+          <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
             <div className="flex items-baseline justify-between">
               <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">When you focus</h2>
               <span className="text-xs text-ink-500">Last 365 days, by start hour</span>
@@ -325,7 +325,7 @@ function WeeklyReviewSection({ weekStart, weekEnd, weekPoms }: { weekStart: Date
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-start gap-3">
         <Sparkles size={18} className="text-accent mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
@@ -378,7 +378,7 @@ function ProjectWeeklyGoals({ projects, weekPoms }: { projects: Project[]; weekP
   if (goaled.length === 0) return null
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-baseline justify-between">
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Weekly goals</h2>
         <span className="text-xs text-ink-500">This week (Mon-Sun)</span>
@@ -417,7 +417,7 @@ function ProjectWeeklyGoals({ projects, weekPoms }: { projects: Project[]; weekP
 
 function ProjectsSection({ totals, title, subtitle }: { totals: ReturnType<typeof projectTotals>; title: string; subtitle: string }) {
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-baseline justify-between">
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">{title}</h2>
         <span className="text-xs text-ink-500">{subtitle}</span>
@@ -430,7 +430,7 @@ function ProjectsSection({ totals, title, subtitle }: { totals: ReturnType<typeo
 function StreakAndRate({ streak, rate, completed, total }: { streak: number; rate: number; completed: number; total: number }) {
   return (
     <section className="grid grid-cols-2 gap-3">
-      <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5">
+      <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5">
         <div className="text-xs uppercase tracking-wider text-ink-500">Current streak</div>
         <div className="font-display text-3xl text-ink-900 dark:text-ink-50 mt-1 tabular">
           {streak} day{streak === 1 ? '' : 's'}
@@ -439,7 +439,7 @@ function StreakAndRate({ streak, rate, completed, total }: { streak: number; rat
           {streak === 0 ? 'Start one today.' : streak === 1 ? 'Keep going.' : 'Don’t break the chain.'}
         </div>
       </div>
-      <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5">
+      <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5">
         <div className="text-xs uppercase tracking-wider text-ink-500">Completion (this week)</div>
         <div className="font-display text-3xl text-ink-900 dark:text-ink-50 mt-1 tabular">
           {Math.round(rate * 100)}%

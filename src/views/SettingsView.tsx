@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Bookmark, CalendarDays, Cloud, CloudOff, Download, FileDown, Layers, LogOut, RefreshCw, Sparkles, Trash2, Upload } from 'lucide-react'
 import { BREATH_PATTERNS, db } from '../db'
-import { useSettings, updateSettings, updateCalendarSync } from '../hooks/useSettings'
+import { useSettings, updateSettings, updateCalendarSync, updateWorkHours, toggleWorkDay } from '../hooks/useSettings'
+import { ensureNotificationPermission } from '../lib/notify'
 import { useSync } from '../hooks/useSync'
 import { chime, breathCue } from '../audio/engine'
 import { exportCsv, exportJson, importJson } from '../lib/exportImport'
@@ -19,6 +20,21 @@ import {
 import { Button } from '../components/Button'
 import { confirmDialog, promptDialog } from '../lib/confirm'
 import type { AiProvider, AmbientId, CalendarSyncSettings, Palette, ThemeMode } from '../types'
+
+const PALETTES: Array<{ id: Palette; label: string; swatch: string }> = [
+  { id: 'blush', label: 'Blush', swatch: '#e79ab4' },
+  { id: 'coral', label: 'Coral', swatch: '#f0a48c' },
+  { id: 'amber', label: 'Amber', swatch: '#e6bd83' },
+  { id: 'citrine', label: 'Citrine', swatch: '#c6d07f' },
+  { id: 'sage', label: 'Sage', swatch: '#9fc9a7' },
+  { id: 'teal', label: 'Teal', swatch: '#86c6bd' },
+  { id: 'sky', label: 'Sky', swatch: '#93c6e2' },
+  { id: 'denim', label: 'Denim', swatch: '#9db0e0' },
+  { id: 'periwinkle', label: 'Periwinkle', swatch: '#aca6e5' },
+  { id: 'lilac', label: 'Lilac', swatch: '#c3a2e2' },
+  { id: 'mauve', label: 'Mauve', swatch: '#d69ccf' },
+  { id: 'slate', label: 'Slate', swatch: '#a3adc0' },
+]
 
 export function SettingsView() {
   const s = useSettings()
@@ -132,21 +148,69 @@ export function SettingsView() {
           </div>
         </Field>
         <Field label="Palette">
-          <div className="flex gap-2">
-            {([
-              { id: 'ember', label: 'Ember', swatch: '#ff6a37' },
-              { id: 'pine', label: 'Pine', swatch: '#168463' },
-              { id: 'slate', label: 'Slate', swatch: '#646473' },
-            ] as Array<{ id: Palette; label: string; swatch: string }>).map(p => (
-              <button key={p.id} onClick={() => updateSettings({ palette: p.id })}
-                className={`flex-1 h-10 rounded-xl border text-sm transition flex items-center justify-center gap-2
-                  ${(s.palette ?? 'ember') === p.id ? 'bg-ink-900 text-white dark:bg-ink-50 dark:text-ink-900 border-transparent' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-700 dark:text-ink-200'}`}>
-                <span className="h-3 w-3 rounded-full" style={{ background: p.swatch }} />
-                {p.label}
-              </button>
-            ))}
+          <div className="grid grid-cols-6 gap-2 sm:grid-cols-7">
+            {PALETTES.map(p => {
+              const selected = s.palette === p.id
+              return (
+                <button key={p.id} type="button" onClick={() => updateSettings({ palette: p.id })}
+                  title={p.label} aria-label={p.label} aria-pressed={selected}
+                  className={`h-10 rounded-xl border flex items-center justify-center transition
+                    ${selected
+                      ? 'border-transparent ring-2 ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ring-ink-900/25 dark:ring-ink-100/30'
+                      : 'border-ink-200 dark:border-ink-700 hover:border-ink-300 dark:hover:border-ink-600'}`}>
+                  <span className="h-5 w-5 rounded-full" style={{ background: p.swatch }} />
+                </button>
+              )
+            })}
+            <label title="Custom color" aria-label="Custom color"
+              className={`relative h-10 rounded-xl border flex items-center justify-center cursor-pointer overflow-hidden transition
+                ${s.palette === 'custom'
+                  ? 'border-transparent ring-2 ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ring-ink-900/25 dark:ring-ink-100/30'
+                  : 'border-ink-200 dark:border-ink-700 hover:border-ink-300 dark:hover:border-ink-600'}`}>
+              <span className="h-5 w-5 rounded-full ring-1 ring-black/10"
+                style={{ background: s.customAccent ?? 'conic-gradient(from 210deg, #e79ab4, #e6bd83, #9fc9a7, #86c6bd, #93c6e2, #aca6e5, #d69ccf, #e79ab4)' }} />
+              <input type="color" value={s.customAccent ?? '#e79ab4'}
+                onChange={e => updateSettings({ palette: 'custom', customAccent: e.target.value })}
+                className="absolute inset-0 opacity-0 cursor-pointer" />
+            </label>
+          </div>
+          <div className="mt-2 text-xs text-ink-500 capitalize">
+            {s.palette === 'custom'
+              ? 'Custom — any color, softened into the pastel range for legibility.'
+              : PALETTES.find(p => p.id === s.palette)?.label ?? s.palette}
           </div>
         </Field>
+      </Section>
+
+      <Section title="Work hours">
+        <Toggle
+          label="Remind me to start focus during work hours"
+          checked={s.workHours.enabled}
+          onChange={async v => {
+            if (v) await ensureNotificationPermission()
+            await updateWorkHours({ enabled: v })
+          }}
+        />
+        <p className="text-[11px] text-ink-500 -mt-1">
+          When you’re idle during the hours below, the app nudges you to start a Pomodoro. It stays silent outside these hours, on off-days, and while a session is running.
+        </p>
+        {s.workHours.enabled && (
+          <div className="space-y-4 pt-1">
+            <div className="grid grid-cols-2 gap-3">
+              <TimeField label="Start" minutes={s.workHours.startMinutes}
+                onChange={m => updateWorkHours({ startMinutes: m })} />
+              <TimeField label="End" minutes={s.workHours.endMinutes}
+                onChange={m => updateWorkHours({ endMinutes: m })} />
+            </div>
+            <Field label="Active days">
+              <DayPicker days={s.workHours.days} onToggle={i => void toggleWorkDay(i)} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Num label="Remind every (min)" value={s.workHours.reminderIntervalMin} min={1} max={180}
+                onChange={v => updateWorkHours({ reminderIntervalMin: v })} />
+            </div>
+          </div>
+        )}
       </Section>
 
       <TemplatesSection />
@@ -191,7 +255,7 @@ function TemplatesSection() {
 
   if (!templates || templates.length === 0) {
     return (
-      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Templates</h2>
         <p className="text-xs text-ink-500">
           Save preset focus combos (project + durations + ritual) for one-tap launch from the Timer screen.
@@ -202,7 +266,7 @@ function TemplatesSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Templates</h2>
         <NewTemplateButton />
@@ -246,7 +310,7 @@ function AIReviewSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Sparkles size={18} className="text-accent" />
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">AI weekly review</h2>
@@ -438,7 +502,7 @@ function CalendarSyncSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <CalendarDays size={18} className="text-accent" />
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Google Calendar</h2>
@@ -577,7 +641,7 @@ function CloudSyncSection() {
 
   if (!sync.enabled) {
     return (
-      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-3">
+      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
         <div className="flex items-center gap-2">
           <CloudOff size={18} className="text-ink-400" />
           <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Cloud sync</h2>
@@ -634,7 +698,7 @@ function CloudSyncSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Cloud size={18} className="text-accent" />
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Cloud sync</h2>
@@ -741,7 +805,7 @@ function DataSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div>
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Your data</h2>
         <p className="text-xs text-ink-500 mt-1">
@@ -783,7 +847,7 @@ function DataSection() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-5 space-y-4">
+    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">{title}</h2>
       {children}
     </section>
@@ -807,6 +871,43 @@ function Num({ label, value, min, max, onChange }: { label: string; value: numbe
         onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
         className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100" />
     </label>
+  )
+}
+
+const FULL_DAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const DAY_PICKER_ORDER = [1, 2, 3, 4, 5, 6, 0] // Mon…Sun display order
+const DAY_PICKER_LABELS: Record<number, string> = { 0: 'S', 1: 'M', 2: 'T', 3: 'W', 4: 'T', 5: 'F', 6: 'S' }
+
+function TimeField({ label, minutes, onChange }: { label: string; minutes: number; onChange: (m: number) => void }) {
+  const hh = String(Math.floor(minutes / 60)).padStart(2, '0')
+  const mm = String(minutes % 60).padStart(2, '0')
+  return (
+    <label className="block space-y-1.5">
+      <span className="text-[11px] font-medium uppercase tracking-wider text-ink-500">{label}</span>
+      <input type="time" value={`${hh}:${mm}`}
+        onChange={e => {
+          const [h, m] = e.target.value.split(':').map(Number)
+          if (Number.isFinite(h) && Number.isFinite(m)) onChange(h * 60 + m)
+        }}
+        className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100" />
+    </label>
+  )
+}
+
+function DayPicker({ days, onToggle }: { days: boolean[]; onToggle: (index: number) => void }) {
+  return (
+    <div className="flex gap-1.5">
+      {DAY_PICKER_ORDER.map(i => {
+        const on = days[i] ?? false
+        return (
+          <button key={i} type="button" onClick={() => onToggle(i)} aria-pressed={on} title={FULL_DAY[i]}
+            className={`flex-1 h-10 rounded-xl border text-sm font-medium transition
+              ${on ? 'bg-accent text-white border-transparent' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-500'}`}>
+            {DAY_PICKER_LABELS[i]}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

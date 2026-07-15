@@ -1,24 +1,20 @@
 import { useEffect } from 'react'
+import { ensureNotificationPermission, sendNotification } from '../lib/notify'
 
-export async function requestNotificationPermission(): Promise<NotificationPermission> {
-  if (!('Notification' in window)) return 'denied'
-  if (Notification.permission === 'default') {
-    return await Notification.requestPermission()
-  }
-  return Notification.permission
+// Thin, platform-agnostic wrapper. The real work (native Tauri plugin on the
+// desktop, Web Notification API in the browser) lives in ../lib/notify.
+
+export async function requestNotificationPermission(): Promise<boolean> {
+  return ensureNotificationPermission()
 }
 
+/** Phase-transition notification: fires only when the tab is hidden (web app). */
 export function notify(title: string, body?: string) {
-  if (!('Notification' in window)) return
-  if (Notification.permission !== 'granted') return
-  if (!document.hidden) return
-  try {
-    new Notification(title, { body, icon: '/favicon.svg', silent: false })
-  } catch {/* noop */}
+  void sendNotification(title, body)
 }
 
 export function useNotificationRequest(enabled: boolean) {
   useEffect(() => {
-    if (enabled) void requestNotificationPermission()
+    if (enabled) void ensureNotificationPermission()
   }, [enabled])
 }

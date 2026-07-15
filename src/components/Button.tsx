@@ -5,7 +5,10 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
 type Size = 'sm' | 'md' | 'lg'
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-accent hover:bg-accent-strong text-white shadow-lg shadow-accent/25',
+  // Ink text on the pastel fill keeps every palette legible; hover darkens the
+  // fill via a brightness filter rather than swapping to a tone that would need
+  // white text.
+  primary: 'bg-accent text-ink-900 hover:brightness-[0.96] active:brightness-95 shadow-sm shadow-accent/30 hover:shadow-md hover:shadow-accent/40',
   secondary: 'bg-ink-100 hover:bg-ink-200 text-ink-800 dark:bg-ink-800 dark:hover:bg-ink-700 dark:text-ink-100',
   ghost: 'bg-transparent hover:bg-ink-100 text-ink-700 dark:hover:bg-ink-800 dark:text-ink-200',
   danger: 'bg-rose-500 hover:bg-rose-600 text-white',
