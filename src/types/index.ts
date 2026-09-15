@@ -77,10 +77,13 @@ export type CalendarSyncSettings = {
   minMinutes: number
 }
 
-// Local-only. Optional daily window that nudges you to start a focus block when
-// you're idle during your set work hours, and stays silent outside them.
+// Local-only. Nudges you to start a focus block or a break whenever you're not
+// tracking either one. `alwaysOn` bypasses the day/time window below; the
+// window fields are kept as fallback config for when it's switched off.
 export type WorkHoursSettings = {
   enabled: boolean
+  // When true, ignore startMinutes/endMinutes/days and nudge at any time.
+  alwaysOn: boolean
   // Minutes since local midnight. A window with end <= start wraps past midnight.
   startMinutes: number
   endMinutes: number

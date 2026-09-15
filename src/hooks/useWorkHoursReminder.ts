@@ -1,13 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { useTimer } from '../store/timer'
 import { useSettings } from './useSettings'
-import { sendNotification } from '../lib/notify'
+import { ensureNotificationPermission, sendNotification } from '../lib/notify'
 import { isWorkWindowActive, reminderDue } from '../lib/workHours'
 import { chime } from '../audio/engine'
 
-// Persistent "start a Pomodoro" nudges during a user-defined work-hours window.
-// Fires only when idle inside the window; goes fully silent outside it (nights,
-// weekends, disabled days) — so a MacBook used after hours gets nothing.
+// Persistent nudges to get you back into one of two tracked states (a focus
+// block or a break) whenever you're idle. Defaults to always-on; a
+// user-defined day/time window is available as an opt-in alternative
+// (workHours.alwaysOn === false).
 
 const CHECK_MS = 60_000
 
@@ -15,6 +16,7 @@ export function useWorkHoursReminder() {
   const s = useSettings()
   const wh = s.workHours
   const enabled = wh.enabled
+  const alwaysOn = wh.alwaysOn
   const startMinutes = wh.startMinutes
   const endMinutes = wh.endMinutes
   const intervalMin = wh.reminderIntervalMin
@@ -36,17 +38,26 @@ export function useWorkHoursReminder() {
       lastReminderRef.current = 0
       return
     }
+    // Request permission here too (not only from the Settings toggle's
+    // onChange), so a row that became enabled via a defaults migration still
+    // gets prompted on next launch.
+    void ensureNotificationPermission()
+
     const days = daysKey.split(',').map(v => v === 'true')
 
     const check = () => {
       const now = new Date()
-      if (!isWorkWindowActive(now, days, startMinutes, endMinutes)) {
+      if (!isWorkWindowActive(now, days, startMinutes, endMinutes, alwaysOn)) {
         lastReminderRef.current = 0 // auto-deactivate outside hours / on off-days
         return
       }
-      if (useTimer.getState().phase !== 'idle') {
+      const phase = useTimer.getState().phase
+      // idle and reflect both mean "not currently tracking a focus block or a
+      // break" — reflect is a decision point, not a tracked state, so a
+      // session left sitting there still counts as a gap.
+      if (phase !== 'idle' && phase !== 'reflect') {
         // A session is engaged. Disarm so the grace interval restarts fresh when
-        // the user next goes idle, rather than firing an "you haven't started"
+        // the user next goes idle, rather than firing an "you're not tracking"
         // nudge the instant a just-finished session returns to idle.
         lastReminderRef.current = 0
         return
@@ -63,8 +74,8 @@ export function useWorkHoursReminder() {
 
       lastReminderRef.current = nowTs
       void sendNotification(
-        'Time to focus',
-        "You haven't started a Pomodoro yet. Start a focus block?",
+        'Still idle',
+        "You're not tracking anything. Start a focus block or take a break?",
         { onlyWhenHidden: false },
       )
       const { muted, chimeVolume } = audioRef.current
@@ -74,5 +85,5 @@ export function useWorkHoursReminder() {
     check()
     const id = setInterval(check, CHECK_MS)
     return () => clearInterval(id)
-  }, [enabled, startMinutes, endMinutes, intervalMin, daysKey])
+  }, [enabled, alwaysOn, startMinutes, endMinutes, intervalMin, daysKey])
 }

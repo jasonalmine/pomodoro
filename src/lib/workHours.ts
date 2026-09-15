@@ -19,9 +19,17 @@ export function withinWorkWindow(nowMin: number, start: number, end: number): bo
 
 /**
  * Is the reminder window active for this clock + day config? `days` is indexed
- * by Date.getDay() (0 = Sunday … 6 = Saturday).
+ * by Date.getDay() (0 = Sunday … 6 = Saturday). `alwaysOn` bypasses the
+ * day/time check entirely.
  */
-export function isWorkWindowActive(now: Date, days: boolean[], start: number, end: number): boolean {
+export function isWorkWindowActive(
+  now: Date,
+  days: boolean[],
+  start: number,
+  end: number,
+  alwaysOn = false,
+): boolean {
+  if (alwaysOn) return true
   return (days[now.getDay()] ?? false) && withinWorkWindow(minutesOfDay(now), start, end)
 }
 

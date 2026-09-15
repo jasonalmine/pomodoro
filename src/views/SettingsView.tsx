@@ -182,9 +182,9 @@ export function SettingsView() {
         </Field>
       </Section>
 
-      <Section title="Work hours">
+      <Section title="Idle reminders">
         <Toggle
-          label="Remind me to start focus during work hours"
+          label="Remind me when I'm not tracking"
           checked={s.workHours.enabled}
           onChange={async v => {
             if (v) await ensureNotificationPermission()
@@ -192,19 +192,28 @@ export function SettingsView() {
           }}
         />
         <p className="text-[11px] text-ink-500 -mt-1">
-          When you’re idle during the hours below, the app nudges you to start a Pomodoro. It stays silent outside these hours, on off-days, and while a session is running.
+          When the app is open and you’re not tracking a focus block or a break, it nudges you to start one.
         </p>
         {s.workHours.enabled && (
           <div className="space-y-4 pt-1">
-            <div className="grid grid-cols-2 gap-3">
-              <TimeField label="Start" minutes={s.workHours.startMinutes}
-                onChange={m => updateWorkHours({ startMinutes: m })} />
-              <TimeField label="End" minutes={s.workHours.endMinutes}
-                onChange={m => updateWorkHours({ endMinutes: m })} />
-            </div>
-            <Field label="Active days">
-              <DayPicker days={s.workHours.days} onToggle={i => void toggleWorkDay(i)} />
-            </Field>
+            <Toggle
+              label="Always (not just set hours)"
+              checked={s.workHours.alwaysOn}
+              onChange={v => updateWorkHours({ alwaysOn: v })}
+            />
+            {!s.workHours.alwaysOn && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <TimeField label="Start" minutes={s.workHours.startMinutes}
+                    onChange={m => updateWorkHours({ startMinutes: m })} />
+                  <TimeField label="End" minutes={s.workHours.endMinutes}
+                    onChange={m => updateWorkHours({ endMinutes: m })} />
+                </div>
+                <Field label="Active days">
+                  <DayPicker days={s.workHours.days} onToggle={i => void toggleWorkDay(i)} />
+                </Field>
+              </>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <Num label="Remind every (min)" value={s.workHours.reminderIntervalMin} min={1} max={180}
                 onChange={v => updateWorkHours({ reminderIntervalMin: v })} />

@@ -1,5 +1,15 @@
 import Dexie, { type Table } from 'dexie'
-import type { DayNote, DayShutdown, Pomodoro, Project, Settings, Task, Template, WeeklyReview } from '../types'
+import type {
+  DayNote,
+  DayShutdown,
+  Pomodoro,
+  Project,
+  Settings,
+  Task,
+  Template,
+  WeeklyReview,
+  WorkHoursSettings,
+} from '../types'
 import { supabaseEnabled } from '../lib/supabase'
 
 class PomodoroDB extends Dexie {
@@ -108,6 +118,31 @@ class PomodoroDB extends Dexie {
         weeklyReviews: 'id, weekStart, createdAt, updatedAt',
         dayNotes: 'id, date, updatedAt',
       })
+    // v10: idle reminders default to always-on instead of a configured
+    // office-hours window. Unlike the null-backfills above, this deliberately
+    // overwrites an explicitly-persisted `enabled: false` left over from the
+    // feature's initial ship (8cb6bdd) — a one-time opt-in-by-default switch,
+    // gated on `alwaysOn` being absent so it only touches pre-migration rows.
+    this.version(10)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+        templates: 'id, name, createdAt, updatedAt',
+        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
+        dayShutdowns: 'id, date, updatedAt',
+        weeklyReviews: 'id, weekStart, createdAt, updatedAt',
+        dayNotes: 'id, date, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
+          const wh = s.workHours as Partial<WorkHoursSettings> | undefined
+          if (wh && wh.alwaysOn === undefined) {
+            wh.alwaysOn = true
+            wh.enabled = true
+          }
+        })
+      })
   }
 }
 
@@ -155,8 +190,9 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   notifications: true,
   workHours: {
-    enabled: false,
-    startMinutes: 9 * 60,  // 09:00
+    enabled: true,
+    alwaysOn: true,
+    startMinutes: 9 * 60,  // 09:00, fallback for when "always" is turned off
     endMinutes: 17 * 60,   // 17:00
     days: [false, true, true, true, true, true, false], // Mon–Fri
     reminderIntervalMin: 15,
