@@ -52,7 +52,7 @@ export function Nav({ collapsed = false }: { collapsed?: boolean }) {
         ))}
       </aside>
 
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 dark:bg-ink-950/95 backdrop-blur border-t border-ink-200 dark:border-ink-800 safe-bottom">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-paper/95 dark:bg-ink-950/95 backdrop-blur border-t border-ink-200 dark:border-ink-800 safe-bottom">
         <div className="grid grid-cols-5 max-w-md mx-auto">
           {items.map(({ to, label, Icon, end }) => (
             <NavLink

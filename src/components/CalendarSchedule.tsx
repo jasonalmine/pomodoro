@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_COLOR } from '../db'
 import { useMemo } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { fmtClock, fmtDuration } from '../lib/format'
@@ -122,8 +123,8 @@ function DayColumn({
               style={{
                 top: ps.topPx,
                 height: ps.heightPx,
-                backgroundColor: `${project?.color ?? '#ff6a37'}26`,
-                borderLeft: `3px solid ${project?.color ?? '#ff6a37'}`,
+                backgroundColor: `${project?.color ?? DEFAULT_PROJECT_COLOR}26`,
+                borderLeft: `3px solid ${project?.color ?? DEFAULT_PROJECT_COLOR}`,
                 opacity: ps.pomodoro.completed ? 1 : 0.65,
               }}
               title={`${project?.name ?? 'Unknown'} · ${fmtClock(ps.pomodoro.startedAt)} · ${fmtDuration(ps.pomodoro.actualSeconds)}${ps.pomodoro.completed ? '' : ' (aborted)'}`}

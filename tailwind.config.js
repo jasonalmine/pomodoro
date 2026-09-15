@@ -10,18 +10,26 @@ export default {
         mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
       colors: {
+        // Card surface on the light theme. Warmer than pure white so cards sit
+        // inside the beige ground instead of punching a hole in it.
+        paper: '#fffcf7',
+        // One warm ramp (hue ~35°, low chroma) shared by both themes: cream
+        // grounds at the top, espresso grounds at the bottom, so light and dark
+        // read as the same material rather than two unrelated greys.
         ink: {
-          50: '#f7f6f3',
-          100: '#efede9',
-          200: '#dcdad4',
-          300: '#b7b5ad',
-          400: '#8b8a83',
-          500: '#66655e',
-          600: '#4c4b46',
-          700: '#3a3934',
-          800: '#26262b',
-          900: '#1b1c21',
-          950: '#131318',
+          50: '#faf7f1',
+          100: '#f3eee4',
+          200: '#e6dfd1',
+          300: '#cfc5b3',
+          // 400/500 are the secondary/tertiary text steps and are mostly used
+          // without a dark: pair, so they flip via CSS vars (see index.css).
+          400: 'rgb(var(--ink-400) / <alpha-value>)',
+          500: 'rgb(var(--ink-500) / <alpha-value>)',
+          600: '#5b5142',
+          700: '#4a4137',
+          800: '#332c25',
+          900: '#221d18',
+          950: '#1a1613',
         },
         accent: {
           DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
@@ -33,7 +41,7 @@ export default {
         },
       },
       boxShadow: {
-        card: '0 1px 2px rgba(20,20,25,0.04), 0 14px 30px -20px rgba(20,20,25,0.18)',
+        card: '0 1px 2px rgba(58,44,30,0.05), 0 14px 30px -20px rgba(58,44,30,0.22)',
       },
       animation: {
         'breath-in': 'breathIn var(--bd, 4s) ease-in-out forwards',

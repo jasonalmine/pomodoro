@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { format } from 'date-fns'
 import { X } from 'lucide-react'
-import { db } from '../db'
+import { db, DEFAULT_PROJECT_COLOR } from '../db'
 import { Button } from './Button'
 import { ProjectChip } from './ProjectChip'
 import { SessionEditPanel } from './SessionEditPanel'
@@ -50,9 +50,9 @@ export function TaskDetailPanel({ taskId, onClose }: { taskId: string; onClose: 
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-ink-950/40 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-6 sm:p-7 space-y-5 max-h-[calc(100vh-2rem)] overflow-y-auto"
+        className="relative w-full max-w-lg rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-6 sm:p-7 space-y-5 max-h-[calc(100vh-2rem)] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <button
@@ -107,11 +107,11 @@ export function TaskDetailPanel({ taskId, onClose }: { taskId: string; onClose: 
                       <button
                         type="button"
                         onClick={() => setEditingId(p.id)}
-                        className="w-full text-left rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 px-3 py-2.5 flex items-center gap-3 hover:border-accent/40 transition"
+                        className="w-full text-left rounded-xl border border-ink-200 dark:border-ink-800 bg-paper dark:bg-ink-900 px-3 py-2.5 flex items-center gap-3 hover:border-accent/40 transition"
                       >
                         <div
                           className="w-1 self-stretch rounded-full shrink-0"
-                          style={{ backgroundColor: project?.color ?? '#ff6a37' }}
+                          style={{ backgroundColor: project?.color ?? DEFAULT_PROJECT_COLOR }}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 text-xs tabular text-ink-500">

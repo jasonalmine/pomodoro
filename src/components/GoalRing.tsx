@@ -13,7 +13,7 @@ export function GoalRing({ current, goal, size = 44, showLabel = false, classNam
   const progress = Math.min(1, current / safeGoal)
   const offset = c * (1 - progress)
   const hit = current >= safeGoal
-  const color = hit ? '#10b981' : '#ff6a37'
+  const color = hit ? 'rgb(var(--rest))' : 'rgb(var(--accent-strong))'
 
   return (
     <div className={`inline-flex items-center gap-2 ${className}`}>

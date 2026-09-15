@@ -94,7 +94,7 @@ export function ProjectsView() {
           return (
             <div
               key={p.id}
-              className={`rounded-2xl border ${p.archived ? 'opacity-60 border-ink-200 dark:border-ink-800' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800'}`}
+              className={`rounded-2xl border ${p.archived ? 'opacity-60 border-ink-200 dark:border-ink-800' : 'bg-paper dark:bg-ink-900 border-ink-200 dark:border-ink-800'}`}
             >
               <div className="p-4 flex items-center gap-3">
                 <button
@@ -418,14 +418,14 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
   }
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <div className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <input
         value={name} onChange={e => setName(e.target.value)} placeholder="Project name" autoFocus
-        className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-base dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+        className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-base dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
       />
       <input
         value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional description"
-        className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+        className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
       />
       <label className="block space-y-1.5">
         <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Weekly goal (hours)</span>
@@ -436,7 +436,7 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
           value={goalHours}
           onChange={e => setGoalHours(e.target.value)}
           placeholder="Leave blank for no goal"
-          className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+          className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
         />
       </label>
       <div className="flex flex-wrap gap-2">
@@ -444,7 +444,7 @@ function ProjectForm({ initial, onSave, onCancel }: { initial: Project | null; o
           <button
             key={c}
             onClick={() => setColor(c)}
-            className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-white dark:ring-offset-ink-900 transition ${c === color ? 'ring-ink-900 dark:ring-ink-50' : 'ring-transparent'}`}
+            className={`h-8 w-8 rounded-full ring-2 ring-offset-2 ring-offset-paper dark:ring-offset-ink-900 transition ${c === color ? 'ring-ink-900 dark:ring-ink-50' : 'ring-transparent'}`}
             style={{ backgroundColor: c }}
             aria-label={`Pick color ${c}`}
           />

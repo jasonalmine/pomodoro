@@ -58,7 +58,7 @@ export function MenuBarPanel() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-white dark:bg-ink-950 text-ink-900 dark:text-ink-50 overflow-hidden">
+    <div className="h-screen w-screen flex flex-col bg-paper dark:bg-ink-950 text-ink-900 dark:text-ink-50 overflow-hidden">
       {/* Drag handle (frameless window) + expand to full app. */}
       <div
         data-tauri-drag-region
@@ -108,7 +108,7 @@ export function MenuBarPanel() {
                 <select
                   value={projectId}
                   onChange={e => setSelectedProjectId(e.target.value)}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                  className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
                 >
                   {active.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>

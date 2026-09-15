@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useTimer, remainingSec } from '../store/timer'
-import { listActiveProjects } from '../db'
+import { DEFAULT_PROJECT_COLOR, listActiveProjects } from '../db'
 
 const SIZE = 64
 const STROKE = 8
@@ -87,7 +87,7 @@ export function useFaviconTimer() {
     ranOnceRef.current = true
     const planProjectId = useTimer.getState().plan?.projectId
     const project = (projects ?? []).find(p => p.id === planProjectId)
-    const color = (phase === 'work' || phase === 'flow') ? (project?.color ?? '#ff6a37') : '#646473'
+    const color = (phase === 'work' || phase === 'flow') ? (project?.color ?? DEFAULT_PROJECT_COLOR) : '#998b74'
 
     function render() {
       const s = useTimer.getState()

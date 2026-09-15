@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_COLOR } from '../db'
 import { useMemo, useState } from 'react'
 import { fmtClock, fmtDuration } from '../lib/format'
 import { overtimeSec } from '../lib/stats'
@@ -35,7 +36,7 @@ export function DailyTimeline({ pomodoros, projects }: { pomodoros: Pomodoro[]; 
         <div className="absolute left-[7px] top-1 bottom-1 w-px bg-ink-200 dark:bg-ink-800" aria-hidden />
         {sorted.map(p => {
           const project = projectMap.get(p.projectId)
-          const color = project?.color ?? '#ff6a37'
+          const color = project?.color ?? DEFAULT_PROJECT_COLOR
           const topPct = ((p.startedAt - dayStartMs) / dayLengthMs) * 100
           return (
             <li key={p.id} className="relative pl-6">
@@ -47,7 +48,7 @@ export function DailyTimeline({ pomodoros, projects }: { pomodoros: Pomodoro[]; 
               <button
                 type="button"
                 onClick={() => setEditingId(p.id)}
-                className="w-full text-left rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 p-3 flex items-start gap-3 hover:border-accent/40 transition"
+                className="w-full text-left rounded-xl border border-ink-200 dark:border-ink-800 bg-paper dark:bg-ink-900 p-3 flex items-start gap-3 hover:border-accent/40 transition"
                 title="Click to edit this session"
               >
                 <div className="flex-1 min-w-0">

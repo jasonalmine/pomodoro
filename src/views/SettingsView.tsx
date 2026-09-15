@@ -90,7 +90,7 @@ export function SettingsView() {
           <select
             value={s.ritual.patternId}
             onChange={e => updateSettings({ ritual: { ...s.ritual, patternId: e.target.value } })}
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+            className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
           >
             {BREATH_PATTERNS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -118,7 +118,7 @@ export function SettingsView() {
           <select
             value={s.audio.ambient}
             onChange={e => updateSettings({ audio: { ...s.audio, ambient: e.target.value as AmbientId } })}
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+            className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
           >
             <option value="none">None</option>
             <option value="rain">Rain</option>
@@ -141,7 +141,7 @@ export function SettingsView() {
             {(['system','light','dark'] as ThemeMode[]).map(t => (
               <button key={t} onClick={() => updateSettings({ theme: t })}
                 className={`flex-1 h-10 rounded-xl border text-sm capitalize transition
-                  ${s.theme === t ? 'bg-ink-900 text-white dark:bg-ink-50 dark:text-ink-900 border-transparent' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-700 dark:text-ink-200'}`}>
+                  ${s.theme === t ? 'bg-ink-900 text-white dark:bg-ink-50 dark:text-ink-900 border-transparent' : 'bg-paper dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-700 dark:text-ink-200'}`}>
                 {t}
               </button>
             ))}
@@ -156,7 +156,7 @@ export function SettingsView() {
                   title={p.label} aria-label={p.label} aria-pressed={selected}
                   className={`h-10 rounded-xl border flex items-center justify-center transition
                     ${selected
-                      ? 'border-transparent ring-2 ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ring-ink-900/25 dark:ring-ink-100/30'
+                      ? 'border-transparent ring-2 ring-offset-2 ring-offset-paper dark:ring-offset-ink-900 ring-ink-900/25 dark:ring-ink-100/30'
                       : 'border-ink-200 dark:border-ink-700 hover:border-ink-300 dark:hover:border-ink-600'}`}>
                   <span className="h-5 w-5 rounded-full" style={{ background: p.swatch }} />
                 </button>
@@ -165,9 +165,9 @@ export function SettingsView() {
             <label title="Custom color" aria-label="Custom color"
               className={`relative h-10 rounded-xl border flex items-center justify-center cursor-pointer overflow-hidden transition
                 ${s.palette === 'custom'
-                  ? 'border-transparent ring-2 ring-offset-2 ring-offset-white dark:ring-offset-ink-900 ring-ink-900/25 dark:ring-ink-100/30'
+                  ? 'border-transparent ring-2 ring-offset-2 ring-offset-paper dark:ring-offset-ink-900 ring-ink-900/25 dark:ring-ink-100/30'
                   : 'border-ink-200 dark:border-ink-700 hover:border-ink-300 dark:hover:border-ink-600'}`}>
-              <span className="h-5 w-5 rounded-full ring-1 ring-black/10"
+              <span className="h-5 w-5 rounded-full ring-1 ring-ink-950/10"
                 style={{ background: s.customAccent ?? 'conic-gradient(from 210deg, #e79ab4, #e6bd83, #9fc9a7, #86c6bd, #93c6e2, #aca6e5, #d69ccf, #e79ab4)' }} />
               <input type="color" value={s.customAccent ?? '#e79ab4'}
                 onChange={e => updateSettings({ palette: 'custom', customAccent: e.target.value })}
@@ -264,7 +264,7 @@ function TemplatesSection() {
 
   if (!templates || templates.length === 0) {
     return (
-      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
+      <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Templates</h2>
         <p className="text-xs text-ink-500">
           Save preset focus combos (project + durations + ritual) for one-tap launch from the Timer screen.
@@ -275,7 +275,7 @@ function TemplatesSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Templates</h2>
         <NewTemplateButton />
@@ -319,7 +319,7 @@ function AIReviewSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Sparkles size={18} className="text-accent" />
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">AI weekly review</h2>
@@ -372,7 +372,7 @@ function AIReviewSection() {
             placeholder={provider === 'anthropic' ? 'sk-ant-…' : provider === 'openai' ? 'sk-…' : 'AIza…'}
             autoComplete="off"
             spellCheck={false}
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
+            className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
           />
           <button
             type="button"
@@ -391,7 +391,7 @@ function AIReviewSection() {
           placeholder={`Default: ${DEFAULT_MODELS[provider]}`}
           autoComplete="off"
           spellCheck={false}
-          className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+          className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
         />
       </Field>
       <p className="text-[11px] text-ink-400 -mt-1">
@@ -511,7 +511,7 @@ function CalendarSyncSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <CalendarDays size={18} className="text-accent" />
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Google Calendar</h2>
@@ -541,7 +541,7 @@ function CalendarSyncSection() {
             placeholder="maton_…"
             autoComplete="off"
             spellCheck={false}
-            className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
+            className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 pr-16"
           />
           <button
             type="button"
@@ -615,7 +615,7 @@ function CalendarSyncSection() {
                 placeholder="primary"
                 autoComplete="off"
                 spellCheck={false}
-                className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm font-mono dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
               />
             </Field>
           </div>
@@ -650,7 +650,7 @@ function CloudSyncSection() {
 
   if (!sync.enabled) {
     return (
-      <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
+      <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
         <div className="flex items-center gap-2">
           <CloudOff size={18} className="text-ink-400" />
           <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Cloud sync</h2>
@@ -707,7 +707,7 @@ function CloudSyncSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-center gap-2">
         <Cloud size={18} className="text-accent" />
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Cloud sync</h2>
@@ -745,7 +745,7 @@ function CloudSyncSection() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="flex-1 rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+              className="flex-1 rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
             />
             <Button onClick={onSendLink} disabled={busy || !email.trim()}>
               {busy ? 'Sending…' : codeSent ? 'Resend' : 'Send code'}
@@ -759,7 +759,7 @@ function CloudSyncSection() {
                 value={code}
                 onChange={e => setCode(e.target.value)}
                 placeholder="Paste login link or 6-digit code"
-                className="flex-1 rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                className="flex-1 rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
               />
               <Button onClick={onVerifyCode} disabled={busy || !code.trim()}>
                 {busy ? 'Verifying…' : 'Sign in'}
@@ -814,7 +814,7 @@ function DataSection() {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div>
         <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">Your data</h2>
         <p className="text-xs text-ink-500 mt-1">
@@ -856,7 +856,7 @@ function DataSection() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <h2 className="font-display text-lg text-ink-900 dark:text-ink-50">{title}</h2>
       {children}
     </section>
@@ -878,7 +878,7 @@ function Num({ label, value, min, max, onChange }: { label: string; value: numbe
       <span className="text-[11px] font-medium uppercase tracking-wider text-ink-500">{label}</span>
       <input type="number" inputMode="numeric" min={min} max={max} value={value}
         onChange={e => onChange(Math.max(min, Math.min(max, Number(e.target.value) || min)))}
-        className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100" />
+        className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100" />
     </label>
   )
 }
@@ -898,7 +898,7 @@ function TimeField({ label, minutes, onChange }: { label: string; minutes: numbe
           const [h, m] = e.target.value.split(':').map(Number)
           if (Number.isFinite(h) && Number.isFinite(m)) onChange(h * 60 + m)
         }}
-        className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100" />
+        className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100" />
     </label>
   )
 }
@@ -911,7 +911,7 @@ function DayPicker({ days, onToggle }: { days: boolean[]; onToggle: (index: numb
         return (
           <button key={i} type="button" onClick={() => onToggle(i)} aria-pressed={on} title={FULL_DAY[i]}
             className={`flex-1 h-10 rounded-xl border text-sm font-medium transition
-              ${on ? 'bg-accent text-white border-transparent' : 'bg-white dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-500'}`}>
+              ${on ? 'bg-accent text-white border-transparent' : 'bg-paper dark:bg-ink-900 border-ink-200 dark:border-ink-800 text-ink-500'}`}>
             {DAY_PICKER_LABELS[i]}
           </button>
         )
@@ -929,7 +929,7 @@ function Toggle({ label, checked, onChange, onPreview }: { label: string; checke
         className={`relative h-6 w-11 rounded-full transition ${checked ? 'bg-accent' : 'bg-ink-200 dark:bg-ink-700'}`}
         aria-pressed={checked}
       >
-        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-paper shadow transition-all ${checked ? 'left-[22px]' : 'left-0.5'}`} />
       </button>
     </div>
   )

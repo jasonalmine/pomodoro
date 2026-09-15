@@ -162,9 +162,9 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
   }
 
   return (
-    <div className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-30 flex items-center justify-center p-4 bg-ink-950/40 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-6 sm:p-7 space-y-5 max-h-[calc(100vh-2rem)] overflow-y-auto"
+        className="relative w-full max-w-lg rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 p-6 sm:p-7 space-y-5 max-h-[calc(100vh-2rem)] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
         <button
@@ -275,7 +275,7 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
                     if (!linked || linked.name !== e.target.value) setTaskId(null)
                   }
                 }}
-                className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 focus:border-accent focus:ring-0 outline-none transition-colors"
+                className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 focus:border-accent focus:ring-0 outline-none transition-colors"
               />
             </label>
 
@@ -284,14 +284,14 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
                 <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Date</span>
                 <input
                   type="date" value={date} onChange={e => setDate(e.target.value)}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                  className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
                 />
               </label>
               <label className="block space-y-1.5">
                 <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-400">Start</span>
                 <input
                   type="time" value={startTime} onChange={e => setStartTime(e.target.value)}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                  className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
                 />
               </label>
               <label className="block space-y-1.5">
@@ -299,7 +299,7 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
                 <input
                   type="number" min={1} max={600} value={minutes}
                   onChange={e => setMinutes(Math.max(1, Math.min(600, Number(e.target.value) || 1)))}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                  className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
                 />
               </label>
             </div>
@@ -310,7 +310,7 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
                 <input
                   type="number" min={0} max={99} value={distractions}
                   onChange={e => setDistractions(Math.max(0, Math.min(99, Number(e.target.value) || 0)))}
-                  className="w-full rounded-xl border border-ink-200 bg-white px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
+                  className="w-full rounded-xl border border-ink-200 bg-paper px-3 h-11 text-sm tabular dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100"
                 />
               </label>
               <label className="flex items-center gap-2 text-sm text-ink-700 dark:text-ink-200 pt-7">
@@ -365,7 +365,7 @@ export function SessionEditPanel({ pomodoroId, onClose }: { pomodoroId: string; 
               <textarea
                 value={note} onChange={e => setNote(e.target.value)} rows={3}
                 placeholder="A blocker, an idea, how it felt…"
-                className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none focus:border-accent focus:ring-0 outline-none transition-colors"
+                className="w-full rounded-xl border border-ink-200 bg-paper px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none focus:border-accent focus:ring-0 outline-none transition-colors"
               />
             </label>
 

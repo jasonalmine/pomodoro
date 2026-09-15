@@ -77,7 +77,7 @@ export function DayNoteCard({ now = new Date() }: { now?: Date }) {
   }
 
   return (
-    <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
+    <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-3">
       <div className="flex items-start gap-3">
         <Notebook size={18} className="text-accent mt-0.5 shrink-0" />
         <div className="flex-1 min-w-0">
@@ -100,7 +100,7 @@ export function DayNoteCard({ now = new Date() }: { now?: Date }) {
         autoFocus={expanded && !hasNote}
         rows={5}
         placeholder="What's on your mind today? A blocker, a half-formed idea, something to remember…"
-        className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-y focus:border-accent focus:ring-0 outline-none transition-colors leading-relaxed"
+        className="w-full rounded-xl border border-ink-200 bg-paper px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-y focus:border-accent focus:ring-0 outline-none transition-colors leading-relaxed"
       />
     </section>
   )

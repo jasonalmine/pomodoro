@@ -1,3 +1,4 @@
+import { DEFAULT_PROJECT_COLOR } from '../db'
 import { useMemo } from 'react'
 import { format, isSameDay } from 'date-fns'
 import { fmtDuration } from '../lib/format'
@@ -65,7 +66,7 @@ export function WeeklyStacks({
                         className="w-full"
                         style={{
                           flexBasis: `${segPct}%`,
-                          backgroundColor: project?.color ?? '#ff6a37',
+                          backgroundColor: project?.color ?? DEFAULT_PROJECT_COLOR,
                           opacity: p.completed ? 1 : 0.55,
                           minHeight: 2,
                         }}

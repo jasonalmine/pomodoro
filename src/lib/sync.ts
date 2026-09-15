@@ -2,7 +2,7 @@
 // Last-write-wins via updatedAt (epoch ms). Settings are stored as a JSON blob.
 
 import type { User, EmailOtpType } from '@supabase/supabase-js'
-import { db, seedDefaultProjectIfEmpty } from '../db'
+import { db, DEFAULT_PROJECT_COLOR, seedDefaultProjectIfEmpty } from '../db'
 import { supabase, supabaseEnabled } from './supabase'
 import { deletePomodoroCalendarEvent } from './calendar'
 import type { DayNote, DayShutdown, Pomodoro, Project, Task, Template } from '../types'
@@ -116,7 +116,7 @@ function rowToProject(r: ProjectRow): Project {
   return {
     id: r.id,
     name: r.name,
-    color: r.color ?? '#ff6a37',
+    color: r.color ?? DEFAULT_PROJECT_COLOR,
     description: r.description ?? undefined,
     archived: r.archived,
     weeklyGoalSeconds: r.weekly_goal_seconds ?? undefined,

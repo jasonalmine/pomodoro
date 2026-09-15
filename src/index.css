@@ -23,6 +23,16 @@
        Medium sage — deep enough (>=3:1 on the light ground) to read as a thin
        ring stroke and a label on both themes. */
     --rest: 79 146 104;
+
+    /* Secondary (500) and tertiary (400) text. Light values sit at ~4.9:1 and
+       ~3.1:1 on the cream ground; the dark overrides below lift them so the
+       same utilities hold ~6:1 / ~4:1 on espresso. */
+    --ink-400: 153 139 116;
+    --ink-500: 118 106 87;
+  }
+  .dark {
+    --ink-400: 140 127 107;
+    --ink-500: 168 155 134;
   }
 
   /* ---- 12 curated pastel palettes (base tones) -------------------------- */

@@ -163,6 +163,9 @@ export const PROJECT_COLORS = [
   '#86c6bd', '#93c6e2', '#aca6e5', '#c3a2e2', '#d69ccf',
 ]
 
+// Fallback for a project with no colour set (or a project that's gone).
+export const DEFAULT_PROJECT_COLOR = PROJECT_COLORS[1]
+
 export const DEFAULT_SETTINGS: Settings = {
   id: 'singleton',
   timer: {

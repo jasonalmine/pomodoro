@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { addDays, addMonths, addWeeks, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek, isToday } from 'date-fns'
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
-import { db, listActiveProjects } from '../db'
+import { db, DEFAULT_PROJECT_COLOR, listActiveProjects } from '../db'
 import { fmtClock, fmtDuration } from '../lib/format'
 import { overtimeSec } from '../lib/stats'
 import { ProjectChip } from '../components/ProjectChip'
@@ -129,7 +129,7 @@ export function CalendarView() {
       )}
 
       {mode === 'week' && (
-        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-4 sm:p-5">
+        <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-4 sm:p-5">
           <CalendarWeekSchedule
             weekDays={eachDayOfInterval({ start: rangeStart, end: rangeEnd })}
             sessionsByDay={byDay}
@@ -141,7 +141,7 @@ export function CalendarView() {
       )}
 
       {mode === 'day' && (
-        <section className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-4 sm:p-5 space-y-3">
+        <section className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div className="text-xs text-ink-500">
               {cursorPoms.length} session{cursorPoms.length === 1 ? '' : 's'} ·{' '}
@@ -185,7 +185,7 @@ function ModeBtn({ active, onClick, children }: { active: boolean; onClick: () =
       onClick={onClick}
       className={`h-7 px-3 rounded-full text-xs font-medium transition ${
         active
-          ? 'bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 shadow-sm'
+          ? 'bg-paper dark:bg-ink-900 text-ink-900 dark:text-ink-50 shadow-sm'
           : 'text-ink-500 hover:text-ink-700 dark:hover:text-ink-200'
       }`}
     >
@@ -244,7 +244,7 @@ function MonthGrid({
             `}
             style={{
               backgroundColor: intensity > 0
-                ? `rgba(255, 106, 55, ${0.1 + intensity * 0.6})`
+                ? `rgb(var(--accent) / ${0.15 + intensity * 0.65})`
                 : undefined,
             }}
           >
@@ -254,7 +254,7 @@ function MonthGrid({
             {list.length > 0 && (
               <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center gap-0.5">
                 {list.slice(0, 6).map(p => (
-                  <span key={p.id} className="h-1 flex-1 rounded-full" style={{ backgroundColor: projectMap.get(p.projectId)?.color ?? '#ff6a37' }} />
+                  <span key={p.id} className="h-1 flex-1 rounded-full" style={{ backgroundColor: projectMap.get(p.projectId)?.color ?? DEFAULT_PROJECT_COLOR }} />
                 ))}
               </div>
             )}
@@ -272,7 +272,7 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
   const [manualOpen, setManualOpen] = useState(false)
 
   return (
-    <div className="rounded-2xl bg-white dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
+    <div className="rounded-2xl bg-paper dark:bg-ink-900 border border-ink-200 dark:border-ink-800 shadow-card p-5 space-y-4">
       <div className="flex items-baseline justify-between gap-3">
         <div>
           <h2 className="font-display text-xl text-ink-900 dark:text-ink-50">{format(date, 'EEEE, MMMM d')}</h2>
@@ -291,7 +291,7 @@ function DayPanel({ date, pomodoros, projects }: { date: Date; pomodoros: Pomodo
             return (
               <li key={p.id} className="rounded-xl border border-ink-200 dark:border-ink-800 overflow-hidden">
                 <button onClick={() => setEditingId(p.id)} className="w-full text-left p-3 flex items-center gap-3 hover:bg-ink-50 dark:hover:bg-ink-800 transition" title="Click to edit">
-                  <div className="w-1 self-stretch rounded-full" style={{ backgroundColor: project?.color ?? '#ff6a37' }} />
+                  <div className="w-1 self-stretch rounded-full" style={{ backgroundColor: project?.color ?? DEFAULT_PROJECT_COLOR }} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {project && <ProjectChip project={project} />}

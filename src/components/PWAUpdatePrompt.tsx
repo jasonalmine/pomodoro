@@ -22,7 +22,7 @@ export function PWAUpdatePrompt() {
 
   if (needRefresh) {
     return (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 shadow-lg px-3 py-2 text-xs">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full border border-ink-200 dark:border-ink-800 bg-paper dark:bg-ink-900 shadow-lg px-3 py-2 text-xs">
         <RefreshCw size={14} className="text-accent" />
         <span className="text-ink-700 dark:text-ink-200">New version available.</span>
         <button
@@ -46,7 +46,7 @@ export function PWAUpdatePrompt() {
 
   if (offlineReady && !hideOffline) {
     return (
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 shadow px-3 py-2 text-xs text-ink-600 dark:text-ink-300">
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 rounded-full border border-ink-200 dark:border-ink-800 bg-paper dark:bg-ink-900 shadow px-3 py-2 text-xs text-ink-600 dark:text-ink-300">
         Ready to work offline.
         <button
           type="button"

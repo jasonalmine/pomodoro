@@ -32,7 +32,7 @@ function phaseRingColor(phase: Phase): string {
     case 'breathing':
       return accentStroke()
     default:
-      return 'rgb(139 138 131)'
+      return 'rgb(153 139 116)' // ink-400
   }
 }
 

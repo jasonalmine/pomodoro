@@ -7,7 +7,7 @@ import { useSettings } from '../hooks/useSettings'
 import { useWakeLock } from '../hooks/useWakeLock'
 import { useNotificationRequest, requestNotificationPermission } from '../hooks/useNotifications'
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts'
-import { db, listActiveProjects } from '../db'
+import { db, DEFAULT_PROJECT_COLOR, listActiveProjects } from '../db'
 import { Button } from '../components/Button'
 import { RingTimer } from '../components/RingTimer'
 import { GoalRing } from '../components/GoalRing'
@@ -425,7 +425,7 @@ export function TimerView() {
                     onClick={() => setBreakKind(k)}
                     className={`h-8 px-4 rounded-full text-xs font-medium transition ${
                       breakKind === k
-                        ? 'bg-white dark:bg-ink-900 text-ink-900 dark:text-ink-50 shadow-sm'
+                        ? 'bg-paper dark:bg-ink-900 text-ink-900 dark:text-ink-50 shadow-sm'
                         : 'text-ink-500 hover:text-ink-700 dark:hover:text-ink-200'
                     }`}
                   >
@@ -648,7 +648,7 @@ function ProjectPicker({ projects, value, onChange }: { projects: Project[]; val
   return (
     <div className="flex justify-center">
       <div className="inline-flex items-center gap-3 rounded-full border border-ink-200 dark:border-ink-800 pl-3 pr-1 py-1">
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: current?.color ?? '#999' }} />
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: current?.color ?? DEFAULT_PROJECT_COLOR }} />
         <select
           value={value}
           onChange={e => onChange(e.target.value)}
@@ -803,7 +803,7 @@ function ProjectSwitcher({ projects, value, onChange }: { projects: Project[]; v
       {open && (
         <div
           role="listbox"
-          className="absolute left-1/2 -translate-x-1/2 mt-2 min-w-[12rem] max-h-64 overflow-y-auto rounded-xl border border-ink-200 dark:border-ink-800 bg-white dark:bg-ink-900 shadow-lg p-1 z-20"
+          className="absolute left-1/2 -translate-x-1/2 mt-2 min-w-[12rem] max-h-64 overflow-y-auto rounded-xl border border-ink-200 dark:border-ink-800 bg-paper dark:bg-ink-900 shadow-lg p-1 z-20"
         >
           {projects.map(p => {
             const selected = p.id === value
@@ -850,7 +850,7 @@ function ModePicker({ mode, onChange }: { mode: IdleMode; onChange: (m: IdleMode
           className={
             'rounded-lg px-3 py-2 text-sm font-medium transition ' +
             (mode === t.key
-              ? 'bg-white dark:bg-ink-800 text-ink-900 dark:text-ink-50 shadow-sm'
+              ? 'bg-paper dark:bg-ink-800 text-ink-900 dark:text-ink-50 shadow-sm'
               : 'text-ink-500 hover:text-ink-700 dark:hover:text-ink-200')
           }
         >
@@ -1022,7 +1022,7 @@ function ReflectionPanel() {
                 value={note} onChange={e => setNote(e.target.value)}
                 rows={3}
                 placeholder="A blocker, an idea, how it felt…"
-                className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none focus:border-accent focus:ring-0 outline-none transition-colors"
+                className="w-full rounded-xl border border-ink-200 bg-paper px-3 py-2.5 text-sm dark:bg-ink-900 dark:border-ink-700 dark:text-ink-100 resize-none focus:border-accent focus:ring-0 outline-none transition-colors"
               />
             </label>
           </>
