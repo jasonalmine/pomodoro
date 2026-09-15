@@ -50,6 +50,7 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 export type Palette =
   | 'blush' | 'coral' | 'amber' | 'citrine' | 'sage' | 'teal'
   | 'sky' | 'denim' | 'periwinkle' | 'lilac' | 'mauve' | 'slate'
+  | 'clay' | 'dune' | 'olive' | 'cocoa'
   | 'custom'
 
 export type AiProvider = 'anthropic' | 'openai' | 'gemini'

@@ -48,6 +48,11 @@
   html.palette-lilac      { --accent-base: 195 162 226; --accent-soft-base: 236 224 245; --accent-strong-base: 151 97 192; }
   html.palette-mauve      { --accent-base: 214 156 207; --accent-soft-base: 242 221 239; --accent-strong-base: 178 95 166; }
   html.palette-slate      { --accent-base: 163 173 192; --accent-soft-base: 226 229 236; --accent-strong-base: 107 118 137; }
+  /* Warm set tuned for the beige ground. */
+  html.palette-clay       { --accent-base: 219 165 147; --accent-soft-base: 243 226 220; --accent-strong-base: 166  88  60; }
+  html.palette-dune       { --accent-base: 213 190 144; --accent-soft-base: 240 232 215; --accent-strong-base: 138 106  40; }
+  html.palette-olive      { --accent-base: 188 199 147; --accent-soft-base: 233 237 217; --accent-strong-base:  98 112  46; }
+  html.palette-cocoa      { --accent-base: 194 168 142; --accent-soft-base: 236 228 219; --accent-strong-base: 122  86  56; }
 
   html, body, #root {
     height: 100%;

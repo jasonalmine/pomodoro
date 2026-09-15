@@ -34,6 +34,10 @@ const PALETTES: Array<{ id: Palette; label: string; swatch: string }> = [
   { id: 'lilac', label: 'Lilac', swatch: '#c3a2e2' },
   { id: 'mauve', label: 'Mauve', swatch: '#d69ccf' },
   { id: 'slate', label: 'Slate', swatch: '#a3adc0' },
+  { id: 'clay', label: 'Clay', swatch: '#dba593' },
+  { id: 'dune', label: 'Dune', swatch: '#d5be90' },
+  { id: 'olive', label: 'Olive', swatch: '#bcc793' },
+  { id: 'cocoa', label: 'Cocoa', swatch: '#c2a88e' },
 ]
 
 export function SettingsView() {

@@ -6,6 +6,7 @@ const PALETTE_CLASSES = [
   'palette-blush', 'palette-coral', 'palette-amber', 'palette-citrine',
   'palette-sage', 'palette-teal', 'palette-sky', 'palette-denim',
   'palette-periwinkle', 'palette-lilac', 'palette-mauve', 'palette-slate',
+  'palette-clay', 'palette-dune', 'palette-olive', 'palette-cocoa',
 ]
 
 // Base accent CSS vars carried inline on <html> for the 'custom' palette. Named
