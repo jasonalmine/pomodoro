@@ -118,53 +118,20 @@ class PomodoroDB extends Dexie {
         weeklyReviews: 'id, weekStart, createdAt, updatedAt',
         dayNotes: 'id, date, updatedAt',
       })
-    // v10: idle reminders default to always-on instead of a configured
-    // office-hours window. Unlike the null-backfills above, this deliberately
-    // overwrites an explicitly-persisted `enabled: false` left over from the
-    // feature's initial ship (8cb6bdd) — a one-time opt-in-by-default switch,
-    // gated on `alwaysOn` being absent so it only touches pre-migration rows.
-    this.version(10)
-      .stores({
-        projects: 'id, name, archived, createdAt, updatedAt',
-        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
-        settings: 'id',
-        templates: 'id, name, createdAt, updatedAt',
-        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
-        dayShutdowns: 'id, date, updatedAt',
-        weeklyReviews: 'id, weekStart, createdAt, updatedAt',
-        dayNotes: 'id, date, updatedAt',
-      })
-      // Upgrade fns must return the Dexie promise, not `await` it: WebKit
-      // auto-commits the versionchange transaction across a native await, so
-      // the modify() then throws and the whole open aborts (DB stuck on v9).
-      .upgrade(tx =>
-        tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
-          const wh = s.workHours as Partial<WorkHoursSettings> | undefined
-          if (wh && wh.alwaysOn === undefined) {
-            wh.alwaysOn = true
-            wh.enabled = true
-          }
-        }),
-      )
-    // v11: idle nudge cadence tightened from 15 to 3 minutes. Only rows still
-    // on the old default move; a hand-picked interval is left alone.
-    this.version(11)
-      .stores({
-        projects: 'id, name, archived, createdAt, updatedAt',
-        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
-        settings: 'id',
-        templates: 'id, name, createdAt, updatedAt',
-        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
-        dayShutdowns: 'id, date, updatedAt',
-        weeklyReviews: 'id, weekStart, createdAt, updatedAt',
-        dayNotes: 'id, date, updatedAt',
-      })
-      .upgrade(tx =>
-        tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
-          const wh = s.workHours as Partial<WorkHoursSettings> | undefined
-          if (wh && wh.reminderIntervalMin === 15) wh.reminderIntervalMin = 3
-        }),
-      )
+    // v10/v11: idle-reminder defaults changed (always-on, 3 min). The settings
+    // backfill is NOT done here: an .upgrade() on this store aborted the whole
+    // open on WebKit (desktop app stuck on v9, running on in-memory defaults).
+    // Schema-only bumps like v5–v9 are proven safe; see backfillSettings().
+    this.version(11).stores({
+      projects: 'id, name, archived, createdAt, updatedAt',
+      pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
+      settings: 'id',
+      templates: 'id, name, createdAt, updatedAt',
+      tasks: 'id, projectId, completed, createdAt, updatedAt, order',
+      dayShutdowns: 'id, date, updatedAt',
+      weeklyReviews: 'id, weekStart, createdAt, updatedAt',
+      dayNotes: 'id, date, updatedAt',
+    })
   }
 }
 
@@ -237,10 +204,31 @@ export const DEFAULT_SETTINGS: Settings = {
   },
 }
 
+// One-time opt-in-by-default for idle reminders (always-on, 3 min). A row from
+// before that feature has no `alwaysOn` key, which is the marker; anything the
+// user has touched since is left alone. Runs in a plain readwrite transaction
+// after open, never inside a version upgrade (see the v11 comment above).
+async function backfillSettings(existing: Settings) {
+  const wh = existing.workHours as Partial<WorkHoursSettings> | undefined
+  if (!wh || wh.alwaysOn !== undefined) return
+  await db.settings.put({
+    ...existing,
+    workHours: {
+      ...DEFAULT_SETTINGS.workHours,
+      ...wh,
+      enabled: true,
+      alwaysOn: true,
+      reminderIntervalMin: wh.reminderIntervalMin === 15 ? 3 : (wh.reminderIntervalMin ?? 3),
+    },
+  })
+}
+
 export async function ensureSeed() {
   const existing = await db.settings.get('singleton')
   if (!existing) {
     await db.settings.put(DEFAULT_SETTINGS)
+  } else {
+    await backfillSettings(existing)
   }
   // Seed the default project immediately ONLY when there's no cloud sync that
   // could import an existing default. With sync configured we defer to
