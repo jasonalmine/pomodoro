@@ -134,15 +134,18 @@ class PomodoroDB extends Dexie {
         weeklyReviews: 'id, weekStart, createdAt, updatedAt',
         dayNotes: 'id, date, updatedAt',
       })
-      .upgrade(async (tx) => {
-        await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
+      // Upgrade fns must return the Dexie promise, not `await` it: WebKit
+      // auto-commits the versionchange transaction across a native await, so
+      // the modify() then throws and the whole open aborts (DB stuck on v9).
+      .upgrade(tx =>
+        tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
           const wh = s.workHours as Partial<WorkHoursSettings> | undefined
           if (wh && wh.alwaysOn === undefined) {
             wh.alwaysOn = true
             wh.enabled = true
           }
-        })
-      })
+        }),
+      )
     // v11: idle nudge cadence tightened from 15 to 3 minutes. Only rows still
     // on the old default move; a hand-picked interval is left alone.
     this.version(11)
@@ -156,12 +159,12 @@ class PomodoroDB extends Dexie {
         weeklyReviews: 'id, weekStart, createdAt, updatedAt',
         dayNotes: 'id, date, updatedAt',
       })
-      .upgrade(async (tx) => {
-        await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
+      .upgrade(tx =>
+        tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
           const wh = s.workHours as Partial<WorkHoursSettings> | undefined
           if (wh && wh.reminderIntervalMin === 15) wh.reminderIntervalMin = 3
-        })
-      })
+        }),
+      )
   }
 }
 

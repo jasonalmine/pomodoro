@@ -67,8 +67,11 @@ fn open_full(app: AppHandle, route: Option<String>) {
 /// races that blur so clicks looked dead.
 fn show_panel(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     let Some(win) = app.get_webview_window("main") else { return };
+    // Don't flip the activation policy here: switching to Accessory while
+    // showing deactivates the app, which fires Focused(false) and the
+    // blur-to-hide swallows the popover. Policy returns to Accessory when the
+    // full window is closed instead.
     *app.state::<PanelState>().is_panel.lock().unwrap() = true;
-    set_policy(app, false);
     let _ = win.set_decorations(false);
     let _ = win.set_always_on_top(true);
     let _ = win.set_resizable(false);
