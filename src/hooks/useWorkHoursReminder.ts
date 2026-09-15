@@ -76,7 +76,7 @@ export function useWorkHoursReminder() {
       void sendNotification(
         'Still idle',
         "You're not tracking anything. Start a focus block or take a break?",
-        { onlyWhenHidden: false },
+        { onlyWhenHidden: false, sound: 'Ping' },
       )
       const { muted, chimeVolume } = audioRef.current
       if (!muted) chime('trackNudge', chimeVolume)

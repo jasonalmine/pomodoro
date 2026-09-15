@@ -45,13 +45,16 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 export async function sendNotification(
   title: string,
   body?: string,
-  opts?: { onlyWhenHidden?: boolean },
+  opts?: { onlyWhenHidden?: boolean; sound?: string },
 ): Promise<void> {
   if (isTauri()) {
     try {
       const n = await loadTauriNotif()
       if (!(await n.isPermissionGranted())) return
-      await n.sendNotification({ title, body })
+      // Always carry a system sound: the in-app WebAudio chime is dropped
+      // whenever WKWebView keeps the hidden window's AudioContext suspended,
+      // so the OS notification is the one channel guaranteed to be audible.
+      await n.sendNotification({ title, body, sound: opts?.sound ?? 'Glass' })
     } catch {
       /* noop */
     }
