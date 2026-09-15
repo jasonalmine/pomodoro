@@ -87,13 +87,34 @@ export function applySettings(s: AudioSettings) {
   chimeDefaultVolume = s.chimeVolume
 }
 
-export type ChimeKind = 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakNudge'
+export type ChimeKind =
+  | 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakNudge' | 'trackNudge'
 
 export function chime(kind: ChimeKind = 'start', volume?: number) {
   const vol = volume ?? chimeDefaultVolume
   withRunningCtx(c => {
     if (!master) return
     const now = c.currentTime
+
+    // "You're not tracking" ding: a bright two-note A5→E6 with a fast attack,
+    // deliberately more attention-grabbing than the soft session cues.
+    if (kind === 'trackNudge') {
+      ;[880, 1318.5].forEach((f, i) => {
+        const o = c.createOscillator()
+        const g = c.createGain()
+        o.type = 'triangle'
+        o.frequency.value = f
+        const start = now + i * 0.18
+        const dur = 0.6
+        g.gain.setValueAtTime(0.0001, start)
+        g.gain.exponentialRampToValueAtTime(vol * 0.6, start + 0.015)
+        g.gain.exponentialRampToValueAtTime(0.0001, start + dur)
+        o.connect(g).connect(master!)
+        o.start(start)
+        o.stop(start + dur + 0.05)
+      })
+      return
+    }
 
     // Single soft bell, distinct pitch per meaning: E5 = focus ran past its
     // plan, D4 = a break is waiting or over. Slower attack/decay for a

@@ -143,6 +143,25 @@ class PomodoroDB extends Dexie {
           }
         })
       })
+    // v11: idle nudge cadence tightened from 15 to 3 minutes. Only rows still
+    // on the old default move; a hand-picked interval is left alone.
+    this.version(11)
+      .stores({
+        projects: 'id, name, archived, createdAt, updatedAt',
+        pomodoros: 'id, projectId, taskId, startedAt, endedAt, completed, updatedAt',
+        settings: 'id',
+        templates: 'id, name, createdAt, updatedAt',
+        tasks: 'id, projectId, completed, createdAt, updatedAt, order',
+        dayShutdowns: 'id, date, updatedAt',
+        weeklyReviews: 'id, weekStart, createdAt, updatedAt',
+        dayNotes: 'id, date, updatedAt',
+      })
+      .upgrade(async (tx) => {
+        await tx.table('settings').toCollection().modify((s: Partial<Settings>) => {
+          const wh = s.workHours as Partial<WorkHoursSettings> | undefined
+          if (wh && wh.reminderIntervalMin === 15) wh.reminderIntervalMin = 3
+        })
+      })
   }
 }
 
@@ -198,7 +217,7 @@ export const DEFAULT_SETTINGS: Settings = {
     startMinutes: 9 * 60,  // 09:00, fallback for when "always" is turned off
     endMinutes: 17 * 60,   // 17:00
     days: [false, true, true, true, true, true, false], // Mon–Fri
-    reminderIntervalMin: 15,
+    reminderIntervalMin: 3,
   },
   wakeLock: true,
   theme: 'system',

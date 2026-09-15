@@ -79,7 +79,7 @@ export function useWorkHoursReminder() {
         { onlyWhenHidden: false },
       )
       const { muted, chimeVolume } = audioRef.current
-      if (!muted) chime('breakNudge', chimeVolume * 0.6)
+      if (!muted) chime('trackNudge', chimeVolume)
     }
 
     check()
