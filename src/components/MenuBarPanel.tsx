@@ -1,19 +1,24 @@
 import { useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Play, Pause, SkipForward, X, Maximize2, Coffee } from 'lucide-react'
+import { Play, Pause, SkipForward, X, Maximize2, Coffee, Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useTimer, planFromSettings } from '../store/timer'
-import { useSettings } from '../hooks/useSettings'
+import { useSettings, updateSettings } from '../hooks/useSettings'
 import { requestNotificationPermission } from '../hooks/useNotifications'
 import { listActiveProjects } from '../db'
 import { RingTimer } from './RingTimer'
 import { Button } from './Button'
+import type { ThemeMode } from '../types'
 
-// Expand the popover into the full app window (handled in Rust).
-function openFull() {
+// Expand the popover into the full app window (handled in Rust), optionally
+// landing on a specific page.
+function openFull(route?: string) {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
-    void import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_full'))
+    void import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_full', { route: route ?? null }))
   }
 }
+
+const THEME_CYCLE: ThemeMode[] = ['system', 'light', 'dark']
+const THEME_ICON = { system: Monitor, light: Sun, dark: Moon } as const
 
 // Compact, flow.app-style menu-bar panel. Same webview / Zustand store as the
 // full app, so the timer it drives is the one the tray countdown reflects.
@@ -48,6 +53,9 @@ export function MenuBarPanel() {
   const reflect = phase === 'reflect'
   const inSession = !idle && !reflect
   const project = active.find(p => p.id === projectId)
+  const ThemeIcon = THEME_ICON[settings.theme] ?? Monitor
+  const headerBtn =
+    'p-1.5 rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100 dark:hover:text-ink-200 dark:hover:bg-ink-900'
 
   const beginFocus = async () => {
     if (!projectId) return
@@ -65,13 +73,24 @@ export function MenuBarPanel() {
         className="flex items-center justify-between px-3 h-11 border-b border-ink-100 dark:border-ink-900 select-none"
       >
         <span className="text-[11px] font-semibold tracking-[0.16em] text-ink-400">POMODORO</span>
-        <button
-          onClick={openFull}
-          title="Open full app"
-          className="p-1.5 rounded-lg text-ink-400 hover:text-ink-700 hover:bg-ink-100 dark:hover:text-ink-200 dark:hover:bg-ink-900"
-        >
-          <Maximize2 size={15} />
-        </button>
+        <div className="flex items-center gap-0.5">
+          <button
+            onClick={() => {
+              const next = THEME_CYCLE[(THEME_CYCLE.indexOf(settings.theme) + 1) % THEME_CYCLE.length]
+              void updateSettings({ theme: next })
+            }}
+            title={`Theme: ${settings.theme} (click to change)`}
+            className={headerBtn}
+          >
+            <ThemeIcon size={15} />
+          </button>
+          <button onClick={() => openFull('/settings')} title="Settings" className={headerBtn}>
+            <Settings size={15} />
+          </button>
+          <button onClick={() => openFull()} title="Open full app" className={headerBtn}>
+            <Maximize2 size={15} />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 pb-4">
@@ -96,7 +115,7 @@ export function MenuBarPanel() {
             <Coffee size={28} className="mx-auto text-accent" />
             <p className="text-sm text-ink-500">Session complete.</p>
             <div className="flex gap-2 justify-center">
-              <Button onClick={openFull}>Log reflection</Button>
+              <Button onClick={() => openFull()}>Log reflection</Button>
               <Button variant="ghost" onClick={() => dismissReflection()}>Skip</Button>
             </div>
           </div>
@@ -124,7 +143,7 @@ export function MenuBarPanel() {
                 </button>
               </>
             ) : (
-              <button onClick={openFull} className="w-full text-sm text-accent hover:underline">
+              <button onClick={() => openFull("/projects")} className="w-full text-sm text-accent hover:underline">
                 Create a project in the full app →
               </button>
             )}

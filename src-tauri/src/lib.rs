@@ -25,11 +25,29 @@ fn set_tray_title(app: AppHandle, title: String) {
     }
 }
 
-/// Expand the popover into the full app window (decorated, centered).
+// The full window needs a Regular activation policy to come to the front and
+// take keyboard focus; the popover goes back to Accessory (no Dock icon).
+fn set_policy(app: &AppHandle, regular: bool) {
+    #[cfg(target_os = "macos")]
+    {
+        let policy = if regular {
+            tauri::ActivationPolicy::Regular
+        } else {
+            tauri::ActivationPolicy::Accessory
+        };
+        let _ = app.set_activation_policy(policy);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, regular);
+}
+
+/// Expand the popover into the full app window (decorated, centered). `route`
+/// optionally deep-links a page (e.g. "/settings") once the full app renders.
 #[tauri::command]
-fn open_full(app: AppHandle) {
+fn open_full(app: AppHandle, route: Option<String>) {
     if let Some(win) = app.get_webview_window("main") {
         *app.state::<PanelState>().is_panel.lock().unwrap() = false;
+        set_policy(&app, true);
         let _ = win.set_always_on_top(false);
         let _ = win.set_decorations(true);
         let _ = win.set_resizable(true);
@@ -38,18 +56,19 @@ fn open_full(app: AppHandle) {
         let _ = win.show();
         let _ = win.set_focus();
         let _ = app.emit("app-mode", "full");
+        if let Some(r) = route {
+            let _ = app.emit("app-route", r);
+        }
     }
 }
 
-/// Show the compact popover anchored just below the clicked tray icon, or hide
-/// it if it's already visible (menu-bar toggle behaviour).
-fn toggle_panel(app: &AppHandle, cursor: PhysicalPosition<f64>) {
+/// Show the compact popover anchored just below the clicked tray icon. Always
+/// shows (never toggles): blur-to-hide already closes it, and a click-to-toggle
+/// races that blur so clicks looked dead.
+fn show_panel(app: &AppHandle, cursor: PhysicalPosition<f64>) {
     let Some(win) = app.get_webview_window("main") else { return };
-    if win.is_visible().unwrap_or(false) {
-        let _ = win.hide();
-        return;
-    }
     *app.state::<PanelState>().is_panel.lock().unwrap() = true;
+    set_policy(app, false);
     let _ = win.set_decorations(false);
     let _ = win.set_always_on_top(true);
     let _ = win.set_resizable(false);
@@ -82,9 +101,12 @@ pub fn run() {
                 MenuItem::with_id(app, "startPause", "Start / Pause", true, None::<&str>)?;
             let skip = MenuItem::with_id(app, "skip", "Skip", true, None::<&str>)?;
             let open = MenuItem::with_id(app, "open", "Open Pomodoro", true, None::<&str>)?;
+            let settings =
+                MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let sep = PredefinedMenuItem::separator(app)?;
-            let menu = Menu::with_items(app, &[&start_pause, &skip, &sep, &open, &quit])?;
+            let menu =
+                Menu::with_items(app, &[&start_pause, &skip, &sep, &open, &settings, &quit])?;
 
             let mut builder = TrayIconBuilder::with_id("main")
                 .menu(&menu)
@@ -97,7 +119,8 @@ pub fn run() {
                     "skip" => {
                         let _ = app.emit("tray://action", "skip");
                     }
-                    "open" => open_full(app.clone()),
+                    "open" => open_full(app.clone(), None),
+                    "settings" => open_full(app.clone(), Some("/settings".into())),
                     "quit" => app.exit(0),
                     _ => {}
                 })
@@ -109,7 +132,7 @@ pub fn run() {
                         ..
                     } = event
                     {
-                        toggle_panel(tray.app_handle(), position);
+                        show_panel(tray.app_handle(), position);
                     }
                 });
 
@@ -125,6 +148,7 @@ pub fn run() {
                 if window.label() == "main" {
                     api.prevent_close();
                     let _ = window.hide();
+                    set_policy(window.app_handle(), false);
                 }
             }
             // A real popover dismisses itself when it loses focus — but only in

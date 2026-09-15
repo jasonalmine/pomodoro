@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { ensureSeed } from './db'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
@@ -65,18 +65,20 @@ function Shell() {
   // emits 'app-mode' ('panel' | 'full') as it resizes/repositions the window.
   // On the web there's no Tauri, so we always render the full app.
   const [mode, setMode] = useState<'panel' | 'full'>(isTauri() ? 'panel' : 'full')
+  const navigate = useNavigate()
   useEffect(() => {
     if (!isTauri()) return
-    let un: (() => void) | undefined
+    const uns: Array<() => void> = []
     let cancelled = false
-    void import('@tauri-apps/api/event').then(({ listen }) =>
-      listen<string>('app-mode', e => setMode(e.payload === 'full' ? 'full' : 'panel')).then(f => {
-        if (cancelled) f()
-        else un = f
-      }),
-    )
-    return () => { cancelled = true; un?.() }
-  }, [])
+    void import('@tauri-apps/api/event').then(async ({ listen }) => {
+      const a = await listen<string>('app-mode', e => setMode(e.payload === 'full' ? 'full' : 'panel'))
+      // Rust emits this right after 'app-mode: full' to deep-link a page
+      // (tray "Settings…", panel gear).
+      const b = await listen<string>('app-route', e => navigate(e.payload))
+      if (cancelled) { a(); b() } else uns.push(a, b)
+    })
+    return () => { cancelled = true; uns.forEach(f => f()) }
+  }, [navigate])
 
   return (
     <>
