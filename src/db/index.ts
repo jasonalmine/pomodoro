@@ -11,6 +11,7 @@ import type {
   WorkHoursSettings,
 } from '../types'
 import { supabaseEnabled } from '../lib/supabase'
+import { crumb } from '../lib/breadcrumb'
 
 class PomodoroDB extends Dexie {
   projects!: Table<Project, string>
@@ -210,8 +211,8 @@ export const DEFAULT_SETTINGS: Settings = {
 // after open, never inside a version upgrade (see the v11 comment above).
 async function backfillSettings(existing: Settings) {
   const wh = existing.workHours as Partial<WorkHoursSettings> | undefined
-  if (!wh || wh.alwaysOn !== undefined) return
-  await db.settings.put({
+  if (!wh || wh.alwaysOn !== undefined) { crumb('seed.backfill', 'skip'); return }
+  const next: Settings = {
     ...existing,
     workHours: {
       ...DEFAULT_SETTINGS.workHours,
@@ -220,11 +221,42 @@ async function backfillSettings(existing: Settings) {
       alwaysOn: true,
       reminderIntervalMin: wh.reminderIntervalMin === 15 ? 3 : (wh.reminderIntervalMin ?? 3),
     },
-  })
+  }
+  crumb('seed.backfill', `put keys=${Object.keys(next).join(',')}`)
+  try {
+    await db.settings.put(next)
+    crumb('seed.backfill', 'put ok')
+  } catch (e) {
+    const err = e as { name?: string; message?: string; stack?: string }
+    crumb('seed.backfill', `put err ${err.name}: ${err.message} ${err.stack ?? ''}`)
+    throw e
+  }
+}
+
+const UNREADABLE = Symbol('unreadable')
+
+// Seen after a macOS/WebKit update: reading a row stored by the previous
+// WebKit throws "Cannot inject key into script value" from inside the IDB
+// success callback, so the request never settles (no rejection to catch).
+// A read that hasn't resolved by `ms` is treated as unreadable.
+function readOrTimeout<T>(p: Promise<T>, ms: number): Promise<T | typeof UNREADABLE> {
+  return Promise.race([p, new Promise<typeof UNREADABLE>(r => setTimeout(() => r(UNREADABLE), ms))])
 }
 
 export async function ensureSeed() {
-  const existing = await db.settings.get('singleton')
+  crumb('seed.step', 'get')
+  let existing = await readOrTimeout(db.settings.get('singleton'), 1500)
+  if (existing === UNREADABLE) {
+    // Settings are device-local (never synced), so the only way forward is to
+    // drop the unreadable row and reseed. delete() doesn't read the value.
+    crumb('seed.recover', 'settings row unreadable, dropping and reseeding')
+    await db.settings.delete('singleton')
+    existing = undefined
+  } else {
+    crumb('seed.step', existing ? 'got row' : 'no row')
+  }
+  const probe = await readOrTimeout(db.projects.toCollection().first(), 1500)
+  crumb('seed.probe', probe === UNREADABLE ? 'projects unreadable' : `projects readable (${probe ? 'has rows' : 'empty'})`)
   if (!existing) {
     await db.settings.put(DEFAULT_SETTINGS)
   } else {

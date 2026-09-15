@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom'
 import { ensureSeed } from './db'
+import { crumb } from './lib/breadcrumb'
 import { useSettings } from './hooks/useSettings'
 import { useTheme } from './hooks/useTheme'
 import { useSync } from './hooks/useSync'
@@ -59,7 +60,9 @@ function Shell() {
   useAudioEffects()
   useWorkHoursReminder()
   useAccentFromFocus()
-  useEffect(() => { void ensureSeed() }, [])
+  useEffect(() => {
+    ensureSeed().then(() => crumb('seed', 'ok'), (e: unknown) => crumb('seed', `err ${String(e)}`))
+  }, [])
 
   // In the desktop shell the one window doubles as a menu-bar popover. Rust
   // emits 'app-mode' ('panel' | 'full') as it resizes/repositions the window.
