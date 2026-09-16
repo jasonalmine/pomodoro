@@ -80,7 +80,8 @@ export function RingTimer() {
   const displayTime = isFlow
     ? fmtTime(Math.round(elapsed))
     : (isOverflow ? fmtTime(phaseDurationSec + overflow) : fmtTime(remaining))
-  const label = isOverflow ? `Overtime · ${PHASE_LABEL[phase]}` : PHASE_LABEL[phase]
+  const onBreak = phase === 'shortBreak' || phase === 'longBreak'
+  const label = isOverflow ? `${onBreak ? 'Overbreak' : 'Overtime'} · ${PHASE_LABEL[phase]}` : PHASE_LABEL[phase]
 
   return (
     <div className="relative flex items-center justify-center select-none">

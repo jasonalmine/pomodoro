@@ -279,15 +279,9 @@ export const useTimer = create<TimerState>((set, get) => ({
       if (elapsed >= s.phaseDurationSec) advancePhase(set, get)
       return
     }
-    // Breaks always terminate at their boundary. Overtime is a focus-only
-    // concept; without this a finished break counts up forever (isOverflow)
-    // and never ends, which reads as the break "not terminating". advancePhase
-    // fires breakEnd, then goes idle or auto-starts the next focus block.
-    if (s.phase === 'shortBreak' || s.phase === 'longBreak') {
-      if (elapsed >= s.phaseDurationSec) advancePhase(set, get)
-      return
-    }
-    // Work: enter overflow at the boundary (unless strict mode advances).
+    // Work and breaks: enter overflow at the boundary and keep counting up
+    // (unless strict mode advances). A break past its plan is "overbreak":
+    // still tracked as a break, just flagged, until the user acts.
     if (elapsed >= s.phaseDurationSec && !s.isOverflow) {
       // Strict mode (allowOvertime=false): advance immediately instead of
       // entering overflow. The advance path saves the Pomodoro / rolls into
@@ -296,10 +290,9 @@ export const useTimer = create<TimerState>((set, get) => ({
         advancePhase(set, get)
         return
       }
-      // Subtle, distinct boundary cue. workEnd still fires on actual completion
-      // (only when no overflow happened, see completeWork). Only work reaches
-      // here — breaks and breathing return at their boundary above.
-      chime('focusOvertime')
+      // Distinct boundary cue per phase. workEnd/breakEnd still fire on the
+      // eventual advance only when no overflow happened.
+      chime(s.phase === 'work' ? 'focusOvertime' : 'breakOvertime')
       set({ isOverflow: true })
     }
   },

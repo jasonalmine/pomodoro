@@ -88,7 +88,7 @@ export function applySettings(s: AudioSettings) {
 }
 
 export type ChimeKind =
-  | 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakNudge' | 'trackNudge'
+  | 'workEnd' | 'breakEnd' | 'start' | 'tick' | 'focusOvertime' | 'breakOvertime' | 'breakNudge' | 'trackNudge'
 
 export function chime(kind: ChimeKind = 'start', volume?: number) {
   const vol = volume ?? chimeDefaultVolume
@@ -117,10 +117,10 @@ export function chime(kind: ChimeKind = 'start', volume?: number) {
     }
 
     // Single soft bell, distinct pitch per meaning: E5 = focus ran past its
-    // plan, D4 = a break is waiting or over. Slower attack/decay for a
-    // subtler cue vs. the bigger workEnd/breakEnd arpeggios.
-    if (kind === 'focusOvertime' || kind === 'breakNudge') {
-      const f = kind === 'focusOvertime' ? 659.25 : 293.66 // E5 vs D4
+    // plan, G4 = break ran past its plan (overbreak), D4 = a break is
+    // waiting or over. Slower attack/decay than the workEnd/breakEnd arpeggios.
+    if (kind === 'focusOvertime' || kind === 'breakOvertime' || kind === 'breakNudge') {
+      const f = kind === 'focusOvertime' ? 659.25 : kind === 'breakOvertime' ? 392 : 293.66
       const o = c.createOscillator()
       const g = c.createGain()
       o.type = 'sine'

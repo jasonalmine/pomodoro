@@ -50,7 +50,7 @@ export function useAudioEffects() {
   useEffect(() => {
     if (!prevOverflow.current && isOverflow && settings.notifications) {
       if (phase === 'work') notify('Planned focus complete', 'In overtime. End or extend when ready.')
-      else if (phase === 'shortBreak' || phase === 'longBreak') notify('Break over', 'In overtime. Get back to it when ready.')
+      else if (phase === 'shortBreak' || phase === 'longBreak') notify('Break over', 'On overbreak. The clock keeps running until you start focus.')
     }
     prevOverflow.current = isOverflow
   }, [isOverflow, phase, settings.notifications])
@@ -136,11 +136,12 @@ export function useAudioEffects() {
       if (settings.audio.muted) return
       const s = useTimer.getState()
       const vol = settings.audio.chimeVolume * 0.6
-      if (s.phase === 'work' && s.isOverflow && s.isRunning) {
+      const onBreak = s.phase === 'shortBreak' || s.phase === 'longBreak'
+      if ((s.phase === 'work' || onBreak) && s.isOverflow && s.isRunning) {
         const bucket = Math.floor((overflowSec(s) * 1000) / REMIND_EVERY_MS)
         if (bucket >= 1 && bucket > overtimeBucketRef.current) {
           overtimeBucketRef.current = bucket
-          chime('focusOvertime', vol)
+          chime(onBreak ? 'breakOvertime' : 'focusOvertime', vol)
         }
       } else {
         overtimeBucketRef.current = 0
