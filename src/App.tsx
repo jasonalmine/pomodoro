@@ -68,6 +68,18 @@ function Shell() {
   // emits 'app-mode' ('panel' | 'full') as it resizes/repositions the window.
   // On the web there's no Tauri, so we always render the full app.
   const [mode, setMode] = useState<'panel' | 'full'>(isTauri() ? 'panel' : 'full')
+  // In the desktop full window, shrinking it narrow also shows the compact
+  // timer view; widening it brings the full layout back. Web keeps the full
+  // app (it has its own mobile layout).
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    if (!isTauri()) return
+    const mq = window.matchMedia('(max-width: 520px)')
+    const apply = () => setNarrow(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
   const navigate = useNavigate()
   useEffect(() => {
     if (!isTauri()) return
@@ -85,7 +97,7 @@ function Shell() {
 
   return (
     <>
-      {mode === 'panel' ? <MenuBarPanel /> : <FullApp />}
+      {mode === 'panel' || narrow ? <MenuBarPanel /> : <FullApp />}
       <ConfirmHost />
     </>
   )

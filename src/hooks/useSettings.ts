@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, DEFAULT_SETTINGS } from '../db'
+import { crumb } from '../lib/breadcrumb'
 import type { CalendarSyncSettings, Palette, Settings, WorkHoursSettings } from '../types'
 
 // Legacy palette ids (pre pastel refresh) → nearest current palette.
@@ -26,8 +27,15 @@ export function useSettings(): Settings {
 }
 
 export async function updateSettings(patch: Partial<Settings>) {
-  const cur = (await db.settings.get('singleton')) ?? DEFAULT_SETTINGS
-  await db.settings.put({ ...cur, ...patch, id: 'singleton' })
+  crumb('settings.write', `start ${Object.keys(patch).join(',')}`)
+  try {
+    const cur = (await db.settings.get('singleton')) ?? DEFAULT_SETTINGS
+    await db.settings.put({ ...cur, ...patch, id: 'singleton' })
+    crumb('settings.write', `ok ${Object.keys(patch).join(',')}`)
+  } catch (e) {
+    crumb('settings.write', `err ${String(e)}`)
+    throw e
+  }
 }
 
 // Deep-merge a partial calendarSync patch onto the FRESHLY-READ settings row.
