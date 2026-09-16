@@ -1,6 +1,6 @@
 use std::sync::Mutex;
+use std::io::Write;
 use tauri::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WindowEvent,
 };
@@ -15,6 +15,30 @@ const PANEL_W: f64 = 380.0;
 const PANEL_H: f64 = 560.0;
 const FULL_W: f64 = 1100.0;
 const FULL_H: f64 = 820.0;
+
+// Tray events land nowhere visible in a menu-bar app, so append them to
+// ~/Library/Logs/Pomodoro/tray.log for diagnosis.
+fn tray_log(line: &str) {
+    let Ok(home) = std::env::var("HOME") else { return };
+    let dir = std::path::Path::new(&home).join("Library/Logs/Pomodoro");
+    let _ = std::fs::create_dir_all(&dir);
+    if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open(dir.join("tray.log")) {
+        let _ = writeln!(f, "{} {line}", chrono_free_now());
+    }
+}
+
+fn chrono_free_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Quit from the popover (there is no tray menu any more).
+#[tauri::command]
+fn quit_app(app: AppHandle) {
+    app.exit(0);
+}
 
 /// Set (or clear) the tray title text (the live countdown) in the menu bar.
 #[tauri::command]
@@ -96,7 +120,7 @@ pub fn run() {
         .manage(PanelState {
             is_panel: Mutex::new(true),
         })
-        .invoke_handler(tauri::generate_handler![set_tray_title, open_full])
+        .invoke_handler(tauri::generate_handler![set_tray_title, open_full, quit_app])
         .setup(|app| {
             // Menu-bar (accessory) app: no Dock icon, lives in the status bar.
             #[cfg(target_os = "macos")]
@@ -104,36 +128,16 @@ pub fn run() {
                 let _ = app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             }
 
-            let start_pause =
-                MenuItem::with_id(app, "startPause", "Start / Pause", true, None::<&str>)?;
-            let skip = MenuItem::with_id(app, "skip", "Skip", true, None::<&str>)?;
-            let open = MenuItem::with_id(app, "open", "Open Pomodoro", true, None::<&str>)?;
-            let settings =
-                MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let sep = PredefinedMenuItem::separator(app)?;
-            let menu =
-                Menu::with_items(app, &[&start_pause, &skip, &sep, &open, &settings, &quit])?;
-
-            let mut builder = TrayIconBuilder::with_id("main")
-                .menu(&menu)
+            // No native menu on the tray: with one attached, macOS 27 opens the
+            // menu on a plain left click and the popover never shows. Every
+            // action lives in the popover instead (quit included).
+            let builder = TrayIconBuilder::with_id("main")
                 .show_menu_on_left_click(false)
                 .icon_as_template(true)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "startPause" => {
-                        let _ = app.emit("tray://action", "startPause");
-                    }
-                    "skip" => {
-                        let _ = app.emit("tray://action", "skip");
-                    }
-                    "open" => open_full(app.clone(), None),
-                    "settings" => open_full(app.clone(), Some("/settings".into())),
-                    "quit" => app.exit(0),
-                    _ => {}
-                })
                 .on_tray_icon_event(|tray, event| {
+                    tray_log(&format!("{event:?}"));
                     if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
+                        button: MouseButton::Left | MouseButton::Right,
                         button_state: MouseButtonState::Up,
                         position,
                         ..
@@ -145,8 +149,7 @@ pub fn run() {
 
             // Dedicated monochrome hourglass template for the menu bar.
             let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
-            builder = builder.icon(tray_icon);
-            builder.build(app)?;
+            builder.icon(tray_icon).build(app)?;
             Ok(())
         })
         .on_window_event(|window, event| match event {

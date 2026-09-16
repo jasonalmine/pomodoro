@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Play, Pause, SkipForward, X, Maximize2, Coffee, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { Play, Pause, SkipForward, X, Maximize2, Coffee, Settings, Sun, Moon, Monitor, Power } from 'lucide-react'
 import { useTimer, planFromSettings } from '../store/timer'
 import { useSettings, updateSettings } from '../hooks/useSettings'
 import { requestNotificationPermission } from '../hooks/useNotifications'
@@ -14,6 +14,12 @@ import type { ThemeMode } from '../types'
 function openFull(route?: string) {
   if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
     void import('@tauri-apps/api/core').then(({ invoke }) => invoke('open_full', { route: route ?? null }))
+  }
+}
+
+function quitApp() {
+  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+    void import('@tauri-apps/api/core').then(({ invoke }) => invoke('quit_app'))
   }
 }
 
@@ -89,6 +95,9 @@ export function MenuBarPanel() {
           </button>
           <button onClick={() => openFull()} title="Open full app" className={headerBtn}>
             <Maximize2 size={15} />
+          </button>
+          <button onClick={quitApp} title="Quit Pomodoro" className={headerBtn}>
+            <Power size={15} />
           </button>
         </div>
       </div>
